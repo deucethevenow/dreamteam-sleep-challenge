@@ -1,11 +1,10 @@
-import { Team, User, ActivityLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress } from '../types';
-import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_STEPS, GRAND_PRIZE_THRESHOLD_STEPS, INITIAL_TEAMS, INITIAL_USERS } from '../constants';
+import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics } from '../types';
+import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, calculateSleepHours } from '../constants';
 
 // API BASE URL - In Replit/Production this is usually relative or configured
 const API_URL = '/api';
 
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)
-// All date operations should use MT to match user activity and server timezone
 const getMountainTimeDate = (date: Date = new Date()): string => {
   return date.toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
 }; 
@@ -13,12 +12,11 @@ const getMountainTimeDate = (date: Date = new Date()): string => {
 class DataService {
   
   // Internal storage for "Offline/Mock" mode
-  private mockLogs: ActivityLog[] = [];
+  private mockLogs: SleepLog[] = [];
   private mockUsers: User[] = [...INITIAL_USERS];
   private isOnline: boolean = false;
 
   constructor() {
-    // Try to check connection immediately
     this.checkConnection();
   }
 
@@ -74,7 +72,7 @@ class DataService {
     }
   }
 
-  private async fetchLogs(): Promise<ActivityLog[]> {
+  private async fetchLogs(): Promise<SleepLog[]> {
     try {
         const res = await fetch(`${API_URL}/logs`);
         if (!res.ok) throw new Error("API Error");
@@ -103,42 +101,100 @@ class DataService {
 
   // --- Actions ---
 
-  async logActivity(userId: number, steps: number, type: string, customDate?: string): Promise<void> {
-    // Use Mountain Time for default date (matches server and when users are active)
+  async logSleep(
+    userId: number, 
+    bedtime: string, 
+    wakeTime: string, 
+    qualityRating?: number,
+    screenshotUrl?: string,
+    notes?: string,
+    customDate?: string,
+    metrics?: SleepMetrics
+  ): Promise<void> {
     const dateStr = customDate || getMountainTimeDate();
+    const sleepHours = calculateSleepHours(bedtime, wakeTime);
 
-    // 1. Try Server
     try {
       const res = await fetch(`${API_URL}/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
-          step_count: steps,
-          activity_type: type,
-          date_logged: dateStr
+          date_logged: dateStr,
+          bedtime,
+          wake_time: wakeTime,
+          sleep_hours: sleepHours,
+          quality_rating: qualityRating,
+          notes,
+          screenshot_url: screenshotUrl,
+          metrics
         })
       });
       if (!res.ok) throw new Error("Failed to save log to server");
       this.isOnline = true;
     } catch (err) {
-        console.warn("Backend save failed. Saving locally for session.", err);
-        this.isOnline = false;
-        // 2. Fallback: Save Locally
-        const newLog: ActivityLog = {
-            id: Math.random(), // Temporary ID
-            user_id: userId,
-            step_count: steps,
-            activity_type: type as any,
-            date_logged: dateStr
-        };
-        this.mockLogs.push(newLog);
-        
-        // Update local user cache if needed
-        const uIndex = this.mockUsers.findIndex(u => u.id === userId);
-        if (uIndex > -1) {
-            this.mockUsers[uIndex].banked_steps += steps;
-        }
+      console.warn("Backend save failed. Saving locally for session.", err);
+      this.isOnline = false;
+      const newLog: SleepLog = {
+        id: Math.random(),
+        user_id: userId,
+        date_logged: dateStr,
+        bedtime,
+        wake_time: wakeTime,
+        sleep_hours: sleepHours,
+        quality_rating: qualityRating,
+        notes,
+        screenshot_url: screenshotUrl,
+        metrics
+      };
+      this.mockLogs.push(newLog);
+      
+      const uIndex = this.mockUsers.findIndex(u => u.id === userId);
+      if (uIndex > -1) {
+        this.mockUsers[uIndex].banked_hours += sleepHours;
+      }
+    }
+  }
+
+  // Log bonus activity (gives hour credits)
+  async logBonus(userId: number, hours: number, bonusType: string, customDate?: string): Promise<void> {
+    const dateStr = customDate || getMountainTimeDate();
+
+    try {
+      const res = await fetch(`${API_URL}/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          date_logged: dateStr,
+          bedtime: '00:00',
+          wake_time: '00:00',
+          sleep_hours: hours,
+          bonus_type: bonusType,
+          notes: `Bonus: ${bonusType}`
+        })
+      });
+      if (!res.ok) throw new Error("Failed to save bonus to server");
+      this.isOnline = true;
+    } catch (err) {
+      console.warn("Backend save failed. Saving locally for session.", err);
+      this.isOnline = false;
+      const newLog: SleepLog = {
+        id: Math.random(),
+        user_id: userId,
+        date_logged: dateStr,
+        bedtime: '00:00',
+        wake_time: '00:00',
+        sleep_hours: hours,
+        bonus_type: bonusType,
+        notes: `Bonus: ${bonusType}`
+      };
+      this.mockLogs.push(newLog);
+      
+      const uIndex = this.mockUsers.findIndex(u => u.id === userId);
+      if (uIndex > -1) {
+        this.mockUsers[uIndex].banked_hours += hours;
+      }
     }
   }
 
@@ -184,8 +240,7 @@ class DataService {
 
   async getRaffleParticipants(): Promise<User[]> {
     try {
-      // Calculate current challenge week (1-4)
-      const CHALLENGE_START = new Date('2025-12-01T00:00:00-07:00');
+      const CHALLENGE_START = new Date('2025-01-01T00:00:00-07:00');
       const today = new Date();
       const todayStr = getMountainTimeDate(today);
       const todayDate = new Date(todayStr + 'T12:00:00-07:00');
@@ -194,12 +249,10 @@ class DataService {
       );
       const currentWeek = Math.min(Math.max(Math.floor(daysSinceStart / 7) + 1, 1), 4);
 
-      // Fetch qualified entries for current week from prize_entries table
       const res = await fetch(`${API_URL}/prizes/${currentWeek}/entries`);
       if (!res.ok) throw new Error("API Error");
       const entries = await res.json();
 
-      // Return only qualified, opted-in users as User objects
       return entries
         .filter((e: any) => e.qualified && e.opted_in)
         .map((e: any) => ({
@@ -207,13 +260,12 @@ class DataService {
           username: e.username,
           avatar_emoji: e.avatar_emoji,
           team_id: e.team_id,
-          banked_steps: 0,
-          raffle_tickets: 1, // For UI compatibility
+          banked_hours: 0,
+          raffle_tickets: 1,
           grand_prize_entry: false
         } as User));
     } catch (err) {
-      console.warn("Failed to fetch raffle participants from prize_entries:", err);
-      // Fallback to old method if API fails
+      console.warn("Failed to fetch raffle participants:", err);
       const users = await this.fetchUsers();
       return users.filter(u => u.raffle_tickets > 0);
     }
@@ -224,22 +276,19 @@ class DataService {
     return users.filter(u => u.grand_prize_entry);
   }
 
-  async getWeeklySteps(userId: number): Promise<number> {
+  async getWeeklyHours(userId: number): Promise<number> {
     const logs = await this.fetchLogs();
 
-    // Challenge week boundaries (Dec 1, 2025 = Week 1 start, which is a Monday)
-    const CHALLENGE_START = new Date('2025-12-01T00:00:00-07:00'); // MT timezone
+    const CHALLENGE_START = new Date('2025-01-01T00:00:00-07:00');
     const today = new Date();
     const todayStr = getMountainTimeDate(today);
-    const todayDate = new Date(todayStr + 'T12:00:00-07:00'); // Noon MT to avoid DST issues
+    const todayDate = new Date(todayStr + 'T12:00:00-07:00');
 
-    // Calculate current challenge week (1-4)
     const daysSinceStart = Math.floor(
       (todayDate.getTime() - CHALLENGE_START.getTime()) / (1000 * 60 * 60 * 24)
     );
     const currentWeek = Math.min(Math.max(Math.floor(daysSinceStart / 7) + 1, 1), 4);
 
-    // Week start/end dates for current challenge week
     const weekStartDate = new Date(CHALLENGE_START);
     weekStartDate.setDate(weekStartDate.getDate() + (currentWeek - 1) * 7);
     const weekEndDate = new Date(weekStartDate);
@@ -254,39 +303,48 @@ class DataService {
                    l.date_logged >= weekStartStr &&
                    l.date_logged <= weekEndStr;
         })
-        .reduce((sum, l) => sum + l.step_count, 0);
+        .reduce((sum, l) => sum + l.sleep_hours, 0);
   }
 
-  async getTotalMonthSteps(userId: number): Promise<number> {
+  async getTotalMonthHours(userId: number): Promise<number> {
     const logs = await this.fetchLogs();
     return logs
         .filter(l => l.user_id === userId)
-        .reduce((sum, l) => sum + l.step_count, 0);
+        .reduce((sum, l) => sum + l.sleep_hours, 0);
   }
 
-  async getTodaySteps(userId: number): Promise<number> {
+  async getTodayHours(userId: number): Promise<number> {
     const logs = await this.fetchLogs();
     const today = getMountainTimeDate();
     return logs
       .filter(l => l.user_id === userId && l.date_logged === today)
-      .reduce((sum, l) => sum + l.step_count, 0);
+      .reduce((sum, l) => sum + l.sleep_hours, 0);
   }
 
-  async getUserLogs(userId: number): Promise<ActivityLog[]> {
+  async getLastNightSleep(userId: number): Promise<SleepLog | null> {
+    const logs = await this.fetchLogs();
+    const today = getMountainTimeDate();
+    const todayLogs = logs.filter(l => l.user_id === userId && l.date_logged === today && !l.bonus_type);
+    return todayLogs.length > 0 ? todayLogs[todayLogs.length - 1] : null;
+  }
+
+  async getUserLogs(userId: number): Promise<SleepLog[]> {
     const logs = await this.fetchLogs();
     return logs
       .filter(l => l.user_id === userId)
       .sort((a, b) => new Date(b.date_logged).getTime() - new Date(a.date_logged).getTime());
   }
 
-  async updateLog(logId: number, stepCount: number, activityType: string, dateLogged: string): Promise<boolean> {
+  async updateLog(logId: number, sleepHours: number, bedtime: string, wakeTime: string, qualityRating: number | undefined, dateLogged: string): Promise<boolean> {
     try {
       const res = await fetch(`${API_URL}/logs/${logId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          step_count: stepCount,
-          activity_type: activityType,
+          sleep_hours: sleepHours,
+          bedtime,
+          wake_time: wakeTime,
+          quality_rating: qualityRating,
           date_logged: dateLogged
         })
       });
@@ -318,25 +376,24 @@ class DataService {
   async getGlobalProgress(): Promise<GlobalProgress> {
     const logs = await this.fetchLogs();
 
-    // Filter logs to only include December 2025 challenge period (Dec 1-31, 2025)
-    const CHALLENGE_START = '2025-12-01';
-    const CHALLENGE_END = '2025-12-31';
-    const decemberLogs = logs.filter(log =>
+    const CHALLENGE_START = '2025-01-01';
+    const CHALLENGE_END = '2025-01-31';
+    const challengeLogs = logs.filter(log =>
       log.date_logged >= CHALLENGE_START && log.date_logged <= CHALLENGE_END
     );
 
-    const totalSteps = decemberLogs.reduce((sum, log) => sum + log.step_count, 0);
-    const percentage = Math.min(100, Math.round((totalSteps / GLOBAL_GOAL) * 100));
+    const totalHours = challengeLogs.reduce((sum, log) => sum + log.sleep_hours, 0);
+    const percentage = Math.min(100, Math.round((totalHours / GLOBAL_GOAL) * 100));
     
     let currentLocation = MILESTONES[0].label;
     for (let i = 0; i < MILESTONES.length; i++) {
-      if (totalSteps >= MILESTONES[i].steps) {
+      if (totalHours >= MILESTONES[i].hours) {
         currentLocation = MILESTONES[i].label;
       }
     }
 
     return {
-      totalSteps,
+      totalHours,
       goal: GLOBAL_GOAL,
       percentage,
       currentLocation
@@ -352,18 +409,18 @@ class DataService {
       const teamMembers = users.filter(u => u.team_id === team.id);
       const memberIds = teamMembers.map(u => u.id);
       const teamLogs = logs.filter(l => memberIds.includes(l.user_id));
-      const totalSteps = teamLogs.reduce((sum, log) => sum + log.step_count, 0);
+      const totalHours = teamLogs.reduce((sum, log) => sum + log.sleep_hours, 0);
       const memberCount = teamMembers.length;
-      const averageSteps = memberCount > 0 ? Math.round(totalSteps / memberCount) : 0;
+      const averageHours = memberCount > 0 ? Math.round((totalHours / memberCount) * 10) / 10 : 0;
 
       return {
         team,
-        totalSteps,
+        totalHours,
         memberCount,
-        averageSteps,
+        averageHours,
         members: teamMembers
       };
-    }).sort((a, b) => b.totalSteps - a.totalSteps);
+    }).sort((a, b) => b.totalHours - a.totalHours);
   }
 
   async getTeamDailyHistory(): Promise<DailyTeamStat[]> {
@@ -373,17 +430,15 @@ class DataService {
 
     const history: DailyTeamStat[] = [];
     const today = new Date();
-    const challengeStart = new Date('2025-12-01');
+    const challengeStart = new Date('2025-01-01');
 
-    // Calculate days since challenge start (show up to 7 most recent days of the challenge)
     const daysSinceStart = Math.floor((today.getTime() - challengeStart.getTime()) / (1000 * 60 * 60 * 24));
-    const daysToShow = Math.min(daysSinceStart + 1, 7); // +1 to include today, max 7 days
+    const daysToShow = Math.min(daysSinceStart + 1, 7);
 
     for (let i = daysToShow - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
 
-      // Skip days before challenge start
       if (d < challengeStart) continue;
 
       const dateStr = getMountainTimeDate(d);
@@ -398,11 +453,11 @@ class DataService {
         const memberIds = teamMembers.map(u => u.id);
 
         const teamDayLogs = logs.filter(l => l.date_logged === dateStr && memberIds.includes(l.user_id));
-        const totalDaySteps = teamDayLogs.reduce((sum, l) => sum + l.step_count, 0);
+        const totalDayHours = teamDayLogs.reduce((sum, l) => sum + l.sleep_hours, 0);
 
         dayStats.teams.push({
           teamId: team.id,
-          totalSteps: totalDaySteps
+          totalHours: totalDayHours
         });
       });
 
@@ -414,7 +469,7 @@ class DataService {
 
   // --- Client-side Stats Calculation ---
 
-  private calculateStreak(userLogs: ActivityLog[]): number {
+  private calculateStreak(userLogs: SleepLog[]): number {
     let streak = 0;
     const today = new Date();
 
@@ -423,13 +478,13 @@ class DataService {
       d.setDate(d.getDate() - i);
       const dateStr = getMountainTimeDate(d);
       
-      const daySteps = userLogs
+      const dayHours = userLogs
         .filter(l => l.date_logged === dateStr)
-        .reduce((sum, l) => sum + l.step_count, 0);
+        .reduce((sum, l) => sum + l.sleep_hours, 0);
         
-      if (daySteps >= DAILY_GOAL) {
+      if (dayHours >= DAILY_GOAL) {
         streak++;
-      } else if (i === 0 && daySteps < DAILY_GOAL) {
+      } else if (i === 0 && dayHours < DAILY_GOAL) {
         continue;
       } else {
         break;
@@ -438,38 +493,45 @@ class DataService {
     return streak;
   }
 
-  private calculateBadges(userLogs: ActivityLog[], streak: number, dailyWins: number): Badge[] {
-    const earnedBadges = JSON.parse(JSON.stringify(BADGES)); // Deep copy
+  private calculateBadges(userLogs: SleepLog[], streak: number, dailyWins: number): Badge[] {
+    const earnedBadges = JSON.parse(JSON.stringify(BADGES));
     
     if (streak >= 3) earnedBadges.find((b: Badge) => b.id === 'streak_3')!.earned = true;
     
-    if (userLogs.some(l => l.activity_type === 'Bonus: Hydration')) {
-      earnedBadges.find((b: Badge) => b.id === 'hydration')!.earned = true;
+    // Early sleeper - in bed before 10pm
+    if (userLogs.some(l => {
+      if (!l.bedtime || l.bonus_type) return false;
+      const [h] = l.bedtime.split(':').map(Number);
+      return h < 22 || h >= 22 && l.bedtime <= '22:00';
+    })) {
+      earnedBadges.find((b: Badge) => b.id === 'early_sleeper')!.earned = true;
     }
     
-    const stepsByDay: Record<string, number> = {};
-    userLogs.forEach(l => {
-      stepsByDay[l.date_logged] = (stepsByDay[l.date_logged] || 0) + l.step_count;
-    });
-    if (Object.values(stepsByDay).some(steps => steps > 15000)) {
-      earnedBadges.find((b: Badge) => b.id === 'high_stepper')!.earned = true;
+    // Quality king - 5 star rating
+    if (userLogs.some(l => l.quality_rating === 5)) {
+      earnedBadges.find((b: Badge) => b.id === 'quality_king')!.earned = true;
+    }
+    
+    // Deep sleeper - 9+ hours
+    if (userLogs.some(l => l.sleep_hours >= 9 && !l.bonus_type)) {
+      earnedBadges.find((b: Badge) => b.id === 'deep_sleeper')!.earned = true;
     }
 
     const weekendLog = userLogs.find(l => {
       const date = new Date(l.date_logged);
       const day = date.getUTCDay();
-      return day === 0 || day === 6; 
+      return (day === 0 || day === 6) && l.sleep_hours >= DAILY_GOAL;
     });
     if (weekendLog) {
       earnedBadges.find((b: Badge) => b.id === 'weekend')!.earned = true;
     }
 
     if (dailyWins > 0) {
-        const winnerBadge = earnedBadges.find((b: Badge) => b.id === 'daily_winner');
-        if (winnerBadge) {
-            winnerBadge.earned = true;
-            winnerBadge.description = `Top walker for ${dailyWins} day${dailyWins > 1 ? 's' : ''}!`;
-        }
+      const winnerBadge = earnedBadges.find((b: Badge) => b.id === 'daily_winner');
+      if (winnerBadge) {
+        winnerBadge.earned = true;
+        winnerBadge.description = `Best sleeper for ${dailyWins} night${dailyWins > 1 ? 's' : ''}!`;
+      }
     }
 
     return earnedBadges;
@@ -480,66 +542,70 @@ class DataService {
     const logs = await this.fetchLogs();
     const teams = await this.fetchTeams();
 
-    // Daily Winners Logic
     const dailyTotals: Record<string, Record<number, number>> = {};
     logs.forEach(log => {
-        if (!dailyTotals[log.date_logged]) dailyTotals[log.date_logged] = {};
-        dailyTotals[log.date_logged][log.user_id] = (dailyTotals[log.date_logged][log.user_id] || 0) + log.step_count;
+      if (!dailyTotals[log.date_logged]) dailyTotals[log.date_logged] = {};
+      dailyTotals[log.date_logged][log.user_id] = (dailyTotals[log.date_logged][log.user_id] || 0) + log.sleep_hours;
     });
 
     const userDailyWins: Record<number, number> = {};
     const todayStr = getMountainTimeDate();
 
-    Object.entries(dailyTotals).forEach(([date, userSteps]) => {
-        if (date === todayStr) return;
-        let maxSteps = 0;
-        let winners: number[] = [];
-        Object.entries(userSteps).forEach(([userIdStr, steps]) => {
-            const userId = parseInt(userIdStr);
-            if (steps > maxSteps) {
-                maxSteps = steps;
-                winners = [userId];
-            } else if (steps === maxSteps) {
-                winners.push(userId);
-            }
-        });
-        winners.forEach(uid => {
-            userDailyWins[uid] = (userDailyWins[uid] || 0) + 1;
-        });
+    Object.entries(dailyTotals).forEach(([date, userHours]) => {
+      if (date === todayStr) return;
+      let maxHours = 0;
+      let winners: number[] = [];
+      Object.entries(userHours).forEach(([userIdStr, hours]) => {
+        const userId = parseInt(userIdStr);
+        if (hours > maxHours) {
+          maxHours = hours;
+          winners = [userId];
+        } else if (hours === maxHours) {
+          winners.push(userId);
+        }
+      });
+      winners.forEach(uid => {
+        userDailyWins[uid] = (userDailyWins[uid] || 0) + 1;
+      });
     });
 
     return users.map(user => {
       const userLogs = logs.filter(l => l.user_id === user.id);
-      const totalSteps = userLogs.reduce((sum, log) => sum + log.step_count, 0);
+      const totalHours = userLogs.reduce((sum, log) => sum + log.sleep_hours, 0);
       const team = teams.find(t => t.id === user.team_id);
       const streak = this.calculateStreak(userLogs);
       const dailyWins = userDailyWins[user.id] || 0;
       const badges = this.calculateBadges(userLogs, streak, dailyWins);
+      
+      // Calculate average quality
+      const qualityLogs = userLogs.filter(l => l.quality_rating);
+      const avgQuality = qualityLogs.length > 0 
+        ? qualityLogs.reduce((sum, l) => sum + (l.quality_rating || 0), 0) / qualityLogs.length 
+        : undefined;
 
       return {
         user,
         teamName: team ? team.name : 'Unknown',
-        totalSteps,
+        totalHours,
         streak,
-        badges
+        badges,
+        avgQuality
       };
-    }).sort((a, b) => b.totalSteps - a.totalSteps);
+    }).sort((a, b) => b.totalHours - a.totalHours);
   }
   
   getDaysLeftInMonth(): number {
-      // Returns days remaining in the month (including today)
-      const now = new Date();
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const diff = endOfMonth.getTime() - now.getTime();
-      return Math.ceil(diff / (1000 * 3600 * 24));
+    const now = new Date();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const diff = endOfMonth.getTime() - now.getTime();
+    return Math.ceil(diff / (1000 * 3600 * 24));
   }
 
   getCurrentDayOfMonth(): number {
-      const now = new Date();
-      return now.getDate();
+    const now = new Date();
+    return now.getDate();
   }
 
-  // Fetch official daily win count from server (synced with daily_winners table)
   async getDailyWinCount(userId: number): Promise<number> {
     try {
       const res = await fetch(`${API_URL}/users/${userId}/daily-wins`);
@@ -547,22 +613,20 @@ class DataService {
       const data = await res.json();
       return data.dailyWins || 0;
     } catch (err) {
-      console.warn("Could not fetch daily wins from server, using local calculation");
-      // Fallback to local calculation
       const logs = await this.fetchLogs();
       const dailyTotals: Record<string, Record<number, number>> = {};
       logs.forEach(log => {
         if (!dailyTotals[log.date_logged]) dailyTotals[log.date_logged] = {};
-        dailyTotals[log.date_logged][log.user_id] = (dailyTotals[log.date_logged][log.user_id] || 0) + log.step_count;
+        dailyTotals[log.date_logged][log.user_id] = (dailyTotals[log.date_logged][log.user_id] || 0) + log.sleep_hours;
       });
 
       let wins = 0;
       const todayStr = getMountainTimeDate();
-      Object.entries(dailyTotals).forEach(([date, userSteps]) => {
+      Object.entries(dailyTotals).forEach(([date, userHours]) => {
         if (date === todayStr) return;
-        const maxSteps = Math.max(...Object.values(userSteps));
-        const userStepsToday = userSteps[userId] || 0;
-        if (userStepsToday === maxSteps && maxSteps > 0) {
+        const maxHours = Math.max(...Object.values(userHours));
+        const userHoursToday = userHours[userId] || 0;
+        if (userHoursToday === maxHours && maxHours > 0) {
           wins++;
         }
       });

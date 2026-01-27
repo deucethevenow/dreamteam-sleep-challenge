@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, Badge } from '../types';
+import { User, Badge, SleepMetrics } from '../types';
 import { db } from '../services/dataService';
-import { getHealthTip } from '../services/geminiService';
-import { DAILY_GOAL, BONUS_ACTIVITIES, RAFFLE_THRESHOLD_STEPS, WEEKLY_GOAL, GRAND_PRIZE_THRESHOLD_STEPS, CONVERSION_RATES, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getMoodAura } from '../constants';
-import { Plus, Flame, Droplets, Moon, Brain, ArrowUp, Ticket, Medal, CalendarClock, CheckCircle2, Crown, Users, Clock, Ruler, Zap, Footprints, Activity, MapPin, Info, Bell, Star, Dumbbell, Smartphone, Snowflake, ThermometerSun, Move, HeartHandshake, Wifi, WifiOff, RefreshCw, Calendar } from 'lucide-react';
+import { getSleepTip } from '../services/geminiService';
+import { DAILY_GOAL, BONUS_ACTIVITIES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getSleepAura, calculateSleepHours } from '../constants';
+import { Moon, Star, Brain, Ticket, Medal, CalendarClock, CheckCircle2, Crown, Users, Clock, Zap, Coffee, BookOpen, MonitorOff, Thermometer, Bell, WifiOff, RefreshCw, Calendar, Bed, Sun, ChevronDown, ChevronUp, Activity } from 'lucide-react';
 import PrizeTracker from './PrizeTracker';
 import MilestoneCelebration from './MilestoneCelebration';
 
@@ -11,26 +11,34 @@ interface DashboardProps {
   user: User;
 }
 
-// New Logging Types
-type LogType = 'quick' | 'workout';
+type LogType = 'sleep' | 'bonus';
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
-  const [todaySteps, setTodaySteps] = useState(0);
-  const [weeklySteps, setWeeklySteps] = useState(0);
-  const [totalMonthSteps, setTotalMonthSteps] = useState(0);
-  const [tip, setTip] = useState('Loading good vibes...');
+  const [todayHours, setTodayHours] = useState(0);
+  const [weeklyHours, setWeeklyHours] = useState(0);
+  const [totalMonthHours, setTotalMonthHours] = useState(0);
+  const [tip, setTip] = useState('Loading sleep wisdom...');
   const [showLogModal, setShowLogModal] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   
   // Logging State
-  const [logType, setLogType] = useState<LogType>('quick');
-  const [manualSteps, setManualSteps] = useState('');
-  const [manualMiles, setManualMiles] = useState('');
-  const [manualMins, setManualMins] = useState('');
-  const [manualCals, setManualCals] = useState('');
-  const [calculatedSteps, setCalculatedSteps] = useState(0);
+  const [logType, setLogType] = useState<LogType>('sleep');
+  const [bedtime, setBedtime] = useState('22:30');
+  const [wakeTime, setWakeTime] = useState('06:30');
+  const [qualityRating, setQualityRating] = useState<number>(0);
+  const [calculatedHours, setCalculatedHours] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' })); // Default to today in MT
+  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [notes, setNotes] = useState('');
+  
+  // Advanced Sleep Metrics State
+  const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
+  const [sleepScore, setSleepScore] = useState<string>('');
+  const [deepSleepMin, setDeepSleepMin] = useState<string>('');
+  const [remSleepMin, setRemSleepMin] = useState<string>('');
+  const [lightSleepMin, setLightSleepMin] = useState<string>('');
+  const [awakeMin, setAwakeMin] = useState<string>('');
   
   // Gamification State
   const [streak, setStreak] = useState(0);
@@ -51,26 +59,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [showMilestoneCelebration, setShowMilestoneCelebration] = useState(false);
   const [milestoneData, setMilestoneData] = useState<{
     grandPrize: { emoji: string; title: string; description: string } | null;
-    totalSteps: number;
+    totalHours: number;
     triggeredBy?: { username: string; avatar_emoji: string };
   } | null>(null);
 
   const todaysQuest = getTodaysQuest();
-  const moodAura = getMoodAura(todaySteps);
+  const sleepAura = getSleepAura(todayHours, qualityRating || undefined);
 
   const fetchData = async () => {
-    const tSteps = await db.getTodaySteps(user.id);
-    const wSteps = await db.getWeeklySteps(user.id);
-    const mSteps = await db.getTotalMonthSteps(user.id);
-    const globalProgress = await db.getGlobalProgress();
+    const tHours = await db.getTodayHours(user.id);
+    const wHours = await db.getWeeklyHours(user.id);
+    const mHours = await db.getTotalMonthHours(user.id);
     
-    setTodaySteps(tSteps);
-    setWeeklySteps(wSteps);
-    setTotalMonthSteps(mSteps);
+    setTodayHours(tHours);
+    setWeeklyHours(wHours);
+    setTotalMonthHours(mHours);
     setIsOnline(db.getIsOnline());
     
-    // Check Quest Logic (Simplified for demo)
-    if (tSteps > (todaysQuest.targetValue || 2000)) {
+    if (tHours >= (todaysQuest.targetValue || 8)) {
         setQuestCompleted(true);
     }
 
@@ -92,12 +98,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     setDaysLeft(db.getDaysLeftInMonth());
     setCurrentDay(db.getCurrentDayOfMonth());
 
-    // Calculate current week (1-4 based on day of month)
     const dayOfMonth = db.getCurrentDayOfMonth();
     const week = Math.ceil(dayOfMonth / 7);
     setCurrentWeek(Math.min(week, 4));
 
-    // Fetch prizes
     try {
       const prizesRes = await fetch('/api/prizes');
       if (prizesRes.ok) {
@@ -108,18 +112,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       console.error('Failed to fetch prizes:', err);
     }
 
-    if (tip === 'Loading good vibes...') {
-        const newTip = await getHealthTip(tSteps);
+    if (tip === 'Loading sleep wisdom...') {
+        const newTip = await getSleepTip(tHours);
         setTip(newTip);
     }
   };
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  // Check for 50% milestone celebration on mount
   useEffect(() => {
     const checkMilestoneCelebration = async () => {
       try {
@@ -129,14 +131,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         const data = await res.json();
 
         if (data.achieved && data.grandPrize) {
-          // Check if user has already seen this celebration
-          const seenKey = `tt_milestone_50_seen_${user.id}`;
+          const seenKey = `dt_milestone_50_seen_${user.id}`;
           const hasSeenCelebration = localStorage.getItem(seenKey);
 
           if (!hasSeenCelebration) {
             setMilestoneData({
               grandPrize: data.grandPrize,
-              totalSteps: data.totalStepsAtTrigger,
+              totalHours: data.totalHoursAtTrigger,
               triggeredBy: data.triggeredBy
             });
             setShowMilestoneCelebration(true);
@@ -150,58 +151,69 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     checkMilestoneCelebration();
   }, [user.id]);
 
-  // Handle milestone celebration close
   const handleMilestoneClose = () => {
-    const seenKey = `tt_milestone_50_seen_${user.id}`;
+    const seenKey = `dt_milestone_50_seen_${user.id}`;
     localStorage.setItem(seenKey, 'true');
     setShowMilestoneCelebration(false);
   };
 
-  // Calculate equivalent steps based on workout inputs
+  // Calculate sleep hours when times change
   useEffect(() => {
-    if (logType === 'quick') {
-        setCalculatedSteps(parseInt(manualSteps) || 0);
-    } else {
-        // Priority: Distance -> Mins -> Cals
-        let s = 0;
-        if (manualMiles) {
-            s = parseFloat(manualMiles) * CONVERSION_RATES.STEPS_PER_MILE;
-        } else if (manualMins) {
-            s = parseFloat(manualMins) * CONVERSION_RATES.STEPS_PER_MINUTE;
-        } else if (manualCals) {
-            s = parseFloat(manualCals) * CONVERSION_RATES.STEPS_PER_CALORIE;
-        }
-        setCalculatedSteps(Math.round(s));
+    if (logType === 'sleep' && bedtime && wakeTime) {
+      const hours = calculateSleepHours(bedtime, wakeTime);
+      setCalculatedHours(hours);
     }
-  }, [logType, manualSteps, manualMiles, manualMins, manualCals]);
+  }, [logType, bedtime, wakeTime]);
 
   const handleLogSubmit = async () => {
-    if (isSubmitting || calculatedSteps === 0) return;
+    if (isSubmitting || calculatedHours === 0) return;
     setIsSubmitting(true);
     
     try {
-        let description = 'Walking';
+        let screenshotUrl: string | undefined;
         
-        if (logType === 'workout') {
-            const parts = [];
-            if (manualMiles) parts.push(`${manualMiles} mi`);
-            if (manualMins) parts.push(`${manualMins} min`);
-            if (manualCals) parts.push(`${manualCals} cal`);
-            
-            if (parts.length > 0) {
-                description = `Workout (${parts.join(', ')})`;
-            }
+        if (screenshotFile) {
+          const reader = new FileReader();
+          screenshotUrl = await new Promise<string>((resolve) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(screenshotFile);
+          });
         }
 
-        await db.logActivity(user.id, calculatedSteps, description, selectedDate);
+        // Build metrics object if any advanced metrics provided
+        const metrics: SleepMetrics | undefined = (sleepScore || deepSleepMin || remSleepMin || lightSleepMin || awakeMin) ? {
+          sleep_score: sleepScore ? parseInt(sleepScore) : undefined,
+          deep_sleep_min: deepSleepMin ? parseInt(deepSleepMin) : undefined,
+          rem_sleep_min: remSleepMin ? parseInt(remSleepMin) : undefined,
+          light_sleep_min: lightSleepMin ? parseInt(lightSleepMin) : undefined,
+          awake_min: awakeMin ? parseInt(awakeMin) : undefined,
+        } : undefined;
+
+        await db.logSleep(
+          user.id, 
+          bedtime, 
+          wakeTime, 
+          qualityRating || undefined,
+          screenshotUrl,
+          notes || undefined,
+          selectedDate,
+          metrics
+        );
 
         // Reset Form
-        setManualSteps('');
-        setManualMiles('');
-        setManualMins('');
-        setManualCals('');
-        setLogType('quick');
-        setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' })); // Reset to today
+        setBedtime('22:30');
+        setWakeTime('06:30');
+        setQualityRating(0);
+        setScreenshotFile(null);
+        setNotes('');
+        setSleepScore('');
+        setDeepSleepMin('');
+        setRemSleepMin('');
+        setLightSleepMin('');
+        setAwakeMin('');
+        setShowAdvancedMetrics(false);
+        setLogType('sleep');
+        setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
 
         setShowLogModal(false);
         await fetchData(); 
@@ -212,12 +224,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   };
   
-  const handleBonusLog = async (steps: number, type: string) => {
+  const handleBonusLog = async (hours: number, type: string) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-        await db.logActivity(user.id, steps, type, selectedDate);
-        setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' })); // Reset to today
+        await db.logBonus(user.id, hours, type, selectedDate);
+        setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
         setShowLogModal(false);
         await fetchData();
     } catch (e) {
@@ -228,7 +240,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   }
   
   const handleEnterWeeklyRaffle = async () => {
-    if (weeklySteps < RAFFLE_THRESHOLD_STEPS) return;
+    if (weeklyHours < RAFFLE_THRESHOLD_HOURS) return;
     const success = await db.enterWeeklyRaffle(user.id);
     if (success) {
       alert("🎟️ You're in! Good luck in this week's draw!");
@@ -237,33 +249,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   };
 
   const handleEnterGrandPrize = async () => {
-    if (totalMonthSteps < GRAND_PRIZE_THRESHOLD_STEPS) return;
+    if (totalMonthHours < GRAND_PRIZE_THRESHOLD_HOURS) return;
     const success = await db.enterGrandPrize(user.id);
     if (success) {
-      alert("👑 You're in the Grand Prize Draw! Outstanding work!");
+      alert("👑 You're in the Grand Prize Draw! Outstanding rest!");
       fetchData();
     }
   };
   
   const getBonusIcon = (iconName: string) => {
       switch(iconName) {
-          case 'Dumbbell': return <Dumbbell size={18} />;
-          case 'SmartphoneOff': return <Smartphone size={18} />;
-          case 'Snowflake': return <Snowflake size={18} />;
-          case 'ThermometerSun': return <ThermometerSun size={18} />;
-          case 'Move': return <Move size={18} />;
-          case 'HeartHandshake': return <HeartHandshake size={18} />;
-          case 'Moon': return <Moon size={18} />;
-          case 'Droplets': return <Droplets size={18} />;
-          default: return <Flame size={18} />;
+          case 'Coffee': return <Coffee size={18} />;
+          case 'BookOpen': return <BookOpen size={18} />;
+          case 'MonitorOff': return <MonitorOff size={18} />;
+          case 'Thermometer': return <Thermometer size={18} />;
+          case 'Brain': return <Brain size={18} />;
+          case 'Clock': return <Clock size={18} />;
+          case 'Zap': return <Zap size={18} />;
+          default: return <Moon size={18} />;
       }
   };
 
-  const progressPercentage = Math.min(100, (todaySteps / DAILY_GOAL) * 100);
-  const weeklyPercentage = Math.min(100, (weeklySteps / RAFFLE_THRESHOLD_STEPS) * 100);
-  const grandPercentage = Math.min(100, (totalMonthSteps / GRAND_PRIZE_THRESHOLD_STEPS) * 100);
+  const progressPercentage = Math.min(100, (todayHours / DAILY_GOAL) * 100);
+  const weeklyPercentage = Math.min(100, (weeklyHours / RAFFLE_THRESHOLD_HOURS) * 100);
+  const grandPercentage = Math.min(100, (totalMonthHours / GRAND_PRIZE_THRESHOLD_HOURS) * 100);
 
-  // Calculate company global progress percentage
   const [companyProgress, setCompanyProgress] = useState(0);
 
   useEffect(() => {
@@ -272,7 +282,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       setCompanyProgress(progress.percentage);
     };
     fetchGlobalProgress();
-  }, [totalMonthSteps]);
+  }, [totalMonthHours]);
 
   const showGrandPrize = companyProgress >= 50;
   
@@ -280,116 +290,143 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progressPercentage / 100) * circumference;
 
-  // Stats Calc using central helper
-  const todayMetrics = calculateMetrics(todaySteps);
-  const monthMetrics = calculateMetrics(totalMonthSteps);
-  const insight = getFunInsight(totalMonthSteps);
-  const todayImpactDetails = getDetailedImpact(todaySteps);
-  const monthImpactDetails = getDetailedImpact(totalMonthSteps);
+  const todayMetrics = calculateMetrics(todayHours);
+  const monthMetrics = calculateMetrics(totalMonthHours);
+  const todayImpactDetails = getDetailedImpact(todayHours);
+  const monthImpactDetails = getDetailedImpact(totalMonthHours);
+
+  // Quality rating stars
+  const renderQualityStars = () => {
+    return (
+      <div className="flex gap-2 justify-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => setQualityRating(star)}
+            className={`text-3xl transition-all ${
+              star <= qualityRating 
+                ? 'text-yellow-400 scale-110' 
+                : 'text-gray-300 hover:text-yellow-200'
+            }`}
+          >
+            ⭐
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  // Sleep score color
+  const getSleepScoreColor = (score: number) => {
+    if (score >= 85) return 'text-green-600 bg-green-50 border-green-200';
+    if (score >= 70) return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (score >= 50) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    return 'text-red-600 bg-red-50 border-red-200';
+  };
 
   return (
     <div className="space-y-6 pb-20">
       {/* Header & Streak */}
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-           {/* MOOD AURA AVATAR */}
-           <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-white text-xl mr-3 border-4 relative shadow-lg ${moodAura.glow}`} >
-              <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${moodAura.color} opacity-20`}></div>
-              <div className={`absolute inset-0 rounded-full border-2 border-transparent bg-gradient-to-br ${moodAura.color} [mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] [mask-composite:exclude]`}></div>
+           <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-white text-xl mr-3 border-4 relative shadow-lg ${sleepAura.glow}`} >
+              <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${sleepAura.color} opacity-20`}></div>
+              <div className={`absolute inset-0 rounded-full border-2 border-transparent bg-gradient-to-br ${sleepAura.color} [mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] [mask-composite:exclude]`}></div>
               <span className="relative z-10">{user.avatar_emoji}</span>
-              <div className={`absolute -bottom-1 -right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-gradient-to-r ${moodAura.color} shadow-sm uppercase tracking-wider`}>
-                {moodAura.label}
+              <div className={`absolute -bottom-1 -right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-gradient-to-r ${sleepAura.color} shadow-sm uppercase tracking-wider`}>
+                {sleepAura.label}
               </div>
            </div>
            
            <div>
              <h1 className="text-2xl font-bold text-gray-900">Hi, {user.username}</h1>
-             <p className="text-gray-500 text-sm">Dec Challenge: <span className="font-bold text-cyan-600">Day {currentDay}</span></p>
+             <p className="text-gray-500 text-sm">Jan Challenge: <span className="font-bold text-indigo-600">Day {currentDay}</span></p>
            </div>
         </div>
         <div className="flex flex-col items-end">
             {streak > 0 ? (
-                <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-1 flex items-center animate-pulse border border-orange-100">
-                    <Flame size={12} className="mr-1 fill-current" />
-                    {streak} Day Streak
+                <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-1 flex items-center animate-pulse border border-indigo-100">
+                    <Moon size={12} className="mr-1 fill-current" />
+                    {streak} Night Streak
                 </div>
             ) : (
                 <div className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-1 flex items-center">
                     <CalendarClock size={12} className="mr-1" />
-                    {daysLeft} Days Left
+                    {daysLeft} Nights Left
                 </div>
             )}
         </div>
       </div>
 
-      {/* NEW: Daily Quest Card */}
-      <div className="bg-gray-900 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-cyan-500/20 to-transparent"></div>
+      {/* Daily Quest Card */}
+      <div className="bg-gradient-to-r from-indigo-900 to-purple-900 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-purple-500/20 to-transparent"></div>
         <div className="flex items-center relative z-10">
-            <div className="bg-gray-800 p-3 rounded-xl mr-4 text-2xl border border-gray-700">
+            <div className="bg-indigo-800 p-3 rounded-xl mr-4 text-2xl border border-indigo-700">
                 {todaysQuest.icon}
             </div>
             <div>
-                <div className="flex items-center text-cyan-400 text-xs font-bold uppercase tracking-wider mb-1">
-                    <Bell size={12} className="mr-1" /> Recess Bell
+                <div className="flex items-center text-purple-300 text-xs font-bold uppercase tracking-wider mb-1">
+                    <Bell size={12} className="mr-1" /> Tonight's Goal
                 </div>
                 <h3 className="text-white font-bold text-sm">{todaysQuest.label}</h3>
-                <p className="text-gray-400 text-xs">{todaysQuest.description}</p>
+                <p className="text-indigo-200 text-xs">{todaysQuest.description}</p>
             </div>
         </div>
         <div className="relative z-10">
             {questCompleted ? (
-                <div className="bg-yellow-500 text-gray-900 p-2 rounded-full shadow-lg shadow-yellow-500/20 animate-bounce">
+                <div className="bg-yellow-500 text-indigo-900 p-2 rounded-full shadow-lg shadow-yellow-500/20 animate-bounce">
                     <Star size={20} className="fill-current" />
                 </div>
             ) : (
-                <div className="w-8 h-8 rounded-full border-2 border-gray-700 border-dashed"></div>
+                <div className="w-8 h-8 rounded-full border-2 border-indigo-700 border-dashed"></div>
             )}
         </div>
       </div>
 
-      {/* Main Activity Card */}
+      {/* Main Sleep Card */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-400 to-blue-500"></div>
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-400 to-purple-500"></div>
         
         <div className="flex flex-col md:flex-row items-center justify-between">
             {/* Circular Progress */}
             <div className="relative w-48 h-48 mb-6 md:mb-0 flex-shrink-0">
               <svg className="w-full h-full transform -rotate-90">
                 <circle cx="96" cy="96" r={radius} stroke="currentColor" strokeWidth="12" fill="transparent" className="text-gray-100"/>
-                <circle cx="96" cy="96" r={radius} stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="text-cyan-500 transition-all duration-1000 ease-out" strokeLinecap="round"/>
+                <circle cx="96" cy="96" r={radius} stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="text-indigo-500 transition-all duration-1000 ease-out" strokeLinecap="round"/>
               </svg>
               <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
-                <span className="text-4xl font-extrabold text-gray-900">{todaySteps.toLocaleString()}</span>
-                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide mt-1">/ {DAILY_GOAL.toLocaleString()} steps</span>
+                <span className="text-4xl font-extrabold text-gray-900">{todayHours.toFixed(1)}</span>
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide mt-1">/ {DAILY_GOAL}h goal</span>
               </div>
             </div>
             
             {/* Today's Stats Grid */}
             <div className="flex-1 w-full md:ml-8">
                 <div className="mb-3 px-1">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Today's Activity</h4>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Last Night</h4>
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-3 rounded-xl border border-orange-200">
-                        <div className="flex items-center text-orange-600 text-xs font-bold uppercase mb-1">
-                            <Flame size={12} className="mr-1" /> Calories
+                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-3 rounded-xl border border-indigo-200">
+                        <div className="flex items-center text-indigo-600 text-xs font-bold uppercase mb-1">
+                            <Moon size={12} className="mr-1" /> Hours
                         </div>
-                        <div className="text-lg font-bold text-gray-900">{todayMetrics.calories.toLocaleString()} <span className="text-xs font-normal text-gray-600">kcal</span></div>
+                        <div className="text-lg font-bold text-gray-900">{todayHours.toFixed(1)} <span className="text-xs font-normal text-gray-600">hrs</span></div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-3 rounded-xl border border-purple-200">
+                        <div className="flex items-center text-purple-600 text-xs font-bold uppercase mb-1">
+                            <Clock size={12} className="mr-1" /> Minutes
+                        </div>
+                        <div className="text-lg font-bold text-gray-900">{todayMetrics.minutes} <span className="text-xs font-normal text-gray-600">min</span></div>
                     </div>
 
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-xl border border-blue-200">
                         <div className="flex items-center text-blue-600 text-xs font-bold uppercase mb-1">
-                            <Clock size={12} className="mr-1" /> Time
+                            <Star size={12} className="mr-1" /> Progress
                         </div>
-                        <div className="text-lg font-bold text-gray-900">{todayMetrics.minutes.toLocaleString()} <span className="text-xs font-normal text-gray-600">mins</span></div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 p-3 rounded-xl border border-cyan-200">
-                        <div className="flex items-center text-cyan-600 text-xs font-bold uppercase mb-1">
-                            <Ruler size={12} className="mr-1" /> Distance
-                        </div>
-                        <div className="text-lg font-bold text-gray-900">{todayMetrics.miles} <span className="text-xs font-normal text-gray-600">mi</span></div>
+                        <div className="text-lg font-bold text-gray-900">{Math.round(progressPercentage)}<span className="text-xs font-normal text-gray-600">%</span></div>
                     </div>
                 </div>
 
@@ -399,59 +436,57 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
                         <div className="flex items-center text-gray-500 text-xs font-bold uppercase mb-1">
-                            <Flame size={12} className="mr-1" />
+                            <Moon size={12} className="mr-1" />
                         </div>
-                        <div className="text-sm font-bold text-gray-700">{monthMetrics.calories.toLocaleString()} <span className="text-xs font-normal text-gray-500">kcal</span></div>
+                        <div className="text-sm font-bold text-gray-700">{totalMonthHours.toFixed(1)} <span className="text-xs font-normal text-gray-500">hrs</span></div>
                     </div>
 
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
                         <div className="flex items-center text-gray-500 text-xs font-bold uppercase mb-1">
-                            <Clock size={12} className="mr-1" />
+                            <Sun size={12} className="mr-1" />
                         </div>
-                        <div className="text-sm font-bold text-gray-700">{monthMetrics.minutes.toLocaleString()} <span className="text-xs font-normal text-gray-500">mins</span></div>
+                        <div className="text-sm font-bold text-gray-700">{monthMetrics.days} <span className="text-xs font-normal text-gray-500">days</span></div>
                     </div>
 
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
                         <div className="flex items-center text-gray-500 text-xs font-bold uppercase mb-1">
-                            <Ruler size={12} className="mr-1" />
+                            <Zap size={12} className="mr-1" />
                         </div>
-                        <div className="text-sm font-bold text-gray-700">{monthMetrics.miles} <span className="text-xs font-normal text-gray-500">mi</span></div>
+                        <div className="text-sm font-bold text-gray-700">{monthMetrics.percentOfLife}<span className="text-xs font-normal text-gray-500">%</span></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        {/* Quick Log Button */}
+        {/* Log Sleep Button */}
         <button
           onClick={() => setShowLogModal(true)}
-          className="mt-6 w-full bg-gray-900 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-gray-300 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center"
+          className="mt-6 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center"
         >
-          <Plus className="mr-2" /> Log Activity
+          <Bed className="mr-2" /> Log Sleep
         </button>
       </div>
 
-      {/* Detailed Impact / Fun Facts Section */}
+      {/* Impact Section */}
       <div>
           <div className="flex items-center mb-3 px-2">
-              <Info className="w-4 h-4 text-cyan-500 mr-2" />
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Your Impact</h3>
+              <Brain className="w-4 h-4 text-indigo-500 mr-2" />
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Sleep Benefits</h3>
           </div>
 
-          {/* Today's Impact */}
           <div className="mb-4">
-              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">Today</h4>
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">Last Night</h4>
               <div className="grid grid-cols-3 gap-3">
                 {todayImpactDetails.map((stat, idx) => (
-                    <div key={idx} className="bg-gradient-to-br from-orange-50 to-orange-100 p-3 rounded-xl border border-orange-200 text-center">
+                    <div key={idx} className="bg-gradient-to-br from-indigo-50 to-purple-50 p-3 rounded-xl border border-indigo-200 text-center">
                         <div className="text-2xl mb-1">{stat.icon}</div>
                         <div className="text-lg font-bold text-gray-900 leading-none">{stat.value}</div>
-                        <div className="text-[10px] font-bold uppercase text-orange-600 mt-1">{stat.label}</div>
+                        <div className="text-[10px] font-bold uppercase text-indigo-600 mt-1">{stat.label}</div>
                     </div>
                 ))}
               </div>
           </div>
 
-          {/* This Month Impact */}
           <div>
               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">This Month</h4>
               <div className="grid grid-cols-3 gap-3">
@@ -460,7 +495,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                         <div className="text-2xl mb-1">{stat.icon}</div>
                         <div className="text-lg font-bold text-gray-900 leading-none">{stat.value}</div>
                         <div className="text-[10px] font-bold uppercase text-gray-500 mt-1">{stat.label}</div>
-                        <div className="text-[9px] text-cyan-600 font-medium bg-cyan-50 px-2 py-0.5 rounded-full mt-1.5">
+                        <div className="text-[9px] text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-full mt-1.5">
                             {stat.detail}
                         </div>
                     </div>
@@ -469,14 +504,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </div>
       </div>
 
-      {/* Health Tip (AI) */}
-      <div className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg">
+      {/* Sleep Tip (AI) */}
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
         <div className="flex items-start">
           <div className="bg-white/20 p-2 rounded-lg mr-3">
-            <Brain size={20} className="text-white" />
+            <Moon size={20} className="text-white" />
           </div>
           <div>
-            <h3 className="text-xs font-bold uppercase opacity-75 tracking-wider mb-1">Daily Vibe Check</h3>
+            <h3 className="text-xs font-bold uppercase opacity-75 tracking-wider mb-1">Sleep Wisdom</h3>
             <p className="font-medium leading-relaxed text-sm">{tip}</p>
           </div>
         </div>
@@ -486,58 +521,56 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       <div className="grid grid-cols-1 gap-6">
           
           {/* WEEKLY RAFFLE CARD */}
-          <div className="bg-gradient-to-br from-teal-800 to-emerald-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+          <div className="bg-gradient-to-br from-indigo-800 to-purple-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
              <div className="flex justify-between items-start mb-4 relative z-10">
                  <div>
-                     <h3 className="text-lg font-bold flex items-center text-white mb-1"><Ticket className="mr-2 text-emerald-400" /> Week {currentWeek} Prize</h3>
+                     <h3 className="text-lg font-bold flex items-center text-white mb-1"><Ticket className="mr-2 text-purple-300" /> Week {currentWeek} Prize</h3>
                      {prizes.find(p => p.week_number === currentWeek) && (
-                       <div className="mt-2 bg-emerald-700/50 rounded-lg p-2 border border-emerald-500/30">
+                       <div className="mt-2 bg-purple-700/50 rounded-lg p-2 border border-purple-500/30">
                          <div className="flex items-center gap-2">
                            <span className="text-2xl">{prizes.find(p => p.week_number === currentWeek)?.emoji}</span>
                            <div>
                              <p className="text-sm font-bold text-white">{prizes.find(p => p.week_number === currentWeek)?.title}</p>
-                             <p className="text-xs text-emerald-200">{prizes.find(p => p.week_number === currentWeek)?.description}</p>
+                             <p className="text-xs text-purple-200">{prizes.find(p => p.week_number === currentWeek)?.description}</p>
                            </div>
                          </div>
                        </div>
                      )}
-                     <p className="text-emerald-200 text-xs mt-2">Hit 60% of weekly goal ({RAFFLE_THRESHOLD_STEPS.toLocaleString()})</p>
+                     <p className="text-purple-200 text-xs mt-2">Hit 60% of weekly goal ({RAFFLE_THRESHOLD_HOURS.toFixed(1)}h)</p>
                  </div>
              </div>
              
-             {/* Progress Bar */}
              <div className="mb-4 relative z-10">
                  <div className="flex justify-between text-[10px] font-bold mb-1 uppercase tracking-wider">
-                     <span className="text-emerald-200">Your Progress</span>
-                     <span className={weeklySteps >= RAFFLE_THRESHOLD_STEPS ? "text-white" : "text-emerald-300"}>
+                     <span className="text-purple-200">Your Progress</span>
+                     <span className={weeklyHours >= RAFFLE_THRESHOLD_HOURS ? "text-white" : "text-purple-300"}>
                         {Math.round(weeklyPercentage)}%
                      </span>
                  </div>
                  <div className="w-full bg-black/30 h-3 rounded-full overflow-hidden">
                      <div 
                         style={{ width: `${weeklyPercentage}%` }}
-                        className="h-full rounded-full transition-all duration-1000 bg-emerald-400"
+                        className="h-full rounded-full transition-all duration-1000 bg-purple-400"
                      ></div>
                  </div>
-                 <p className="text-right text-[10px] mt-1 text-emerald-300">{weeklySteps.toLocaleString()} / {RAFFLE_THRESHOLD_STEPS.toLocaleString()} steps</p>
+                 <p className="text-right text-[10px] mt-1 text-purple-300">{weeklyHours.toFixed(1)} / {RAFFLE_THRESHOLD_HOURS.toFixed(1)} hours</p>
              </div>
              
-             {/* Participants List */}
              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm relative z-10">
                 <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold text-emerald-100 uppercase tracking-wider flex items-center">
+                    <p className="text-xs font-bold text-purple-100 uppercase tracking-wider flex items-center">
                         <Users size={12} className="mr-1"/> Qualifiers ({weeklyParticipants.length})
                     </p>
                     
                     {hasEnteredWeekly ? (
-                        <span className="flex items-center text-[10px] bg-emerald-500 text-white px-2 py-1 rounded-md font-bold shadow-sm">
+                        <span className="flex items-center text-[10px] bg-purple-500 text-white px-2 py-1 rounded-md font-bold shadow-sm">
                             <CheckCircle2 size={10} className="mr-1" /> Entered
                         </span>
                     ) : (
-                        weeklySteps >= RAFFLE_THRESHOLD_STEPS && (
+                        weeklyHours >= RAFFLE_THRESHOLD_HOURS && (
                             <button 
                                 onClick={handleEnterWeeklyRaffle}
-                                className="text-[10px] bg-white text-teal-900 px-3 py-1 rounded-md font-bold hover:bg-teal-50 shadow-sm"
+                                className="text-[10px] bg-white text-indigo-900 px-3 py-1 rounded-md font-bold hover:bg-purple-50 shadow-sm"
                             >
                                 Enter Now
                             </button>
@@ -546,15 +579,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
                 
                 {weeklyParticipants.length === 0 ? (
-                    <p className="text-xs text-emerald-300/60 italic text-center py-2">Be the first to qualify!</p>
+                    <p className="text-xs text-purple-300/60 italic text-center py-2">Be the first to qualify!</p>
                 ) : (
                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
                         {weeklyParticipants.map(p => (
-                            <div key={p.id} className={`flex items-center p-2 rounded-lg transition-colors ${p.id === user.id ? 'bg-emerald-500/40 border border-emerald-400/50' : 'bg-black/20'}`}>
-                                <div className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-100/10 text-sm mr-2">
+                            <div key={p.id} className={`flex items-center p-2 rounded-lg transition-colors ${p.id === user.id ? 'bg-purple-500/40 border border-purple-400/50' : 'bg-black/20'}`}>
+                                <div className="w-6 h-6 flex items-center justify-center rounded-full bg-purple-100/10 text-sm mr-2">
                                     {p.avatar_emoji}
                                 </div>
-                                <span className={`text-xs font-medium truncate ${p.id === user.id ? 'text-white' : 'text-emerald-100'}`}>
+                                <span className={`text-xs font-medium truncate ${p.id === user.id ? 'text-white' : 'text-purple-100'}`}>
                                     {p.username}
                                 </span>
                             </div>
@@ -564,9 +597,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
              </div>
           </div>
 
-          {/* GRAND PRIZE CARD - Only shows when company hits 50% */}
+          {/* GRAND PRIZE CARD */}
           {showGrandPrize ? (
-          <div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden border-t-4 border-yellow-400">
+          <div className="bg-gradient-to-br from-gray-900 to-indigo-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden border-t-4 border-yellow-400">
              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-yellow-400 opacity-10 rounded-full blur-3xl"></div>
 
              <div className="flex justify-between items-start mb-4 relative z-10">
@@ -583,15 +616,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                          </div>
                        </div>
                      )}
-                     <p className="text-indigo-200 text-xs mt-2">Hit 70% of Dec goal ({GRAND_PRIZE_THRESHOLD_STEPS.toLocaleString()})</p>
+                     <p className="text-indigo-200 text-xs mt-2">Hit 70% of Jan goal ({GRAND_PRIZE_THRESHOLD_HOURS.toFixed(1)}h)</p>
                  </div>
              </div>
              
-             {/* Progress Bar */}
              <div className="mb-4 relative z-10">
                  <div className="flex justify-between text-[10px] font-bold mb-1 uppercase tracking-wider">
                      <span className="text-indigo-200">Month Progress</span>
-                     <span className={totalMonthSteps >= GRAND_PRIZE_THRESHOLD_STEPS ? "text-yellow-400" : "text-indigo-300"}>
+                     <span className={totalMonthHours >= GRAND_PRIZE_THRESHOLD_HOURS ? "text-yellow-400" : "text-indigo-300"}>
                         {Math.round(grandPercentage)}%
                      </span>
                  </div>
@@ -601,14 +633,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                         className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-yellow-400 to-orange-500"
                      ></div>
                  </div>
-                 <p className="text-right text-[10px] mt-1 text-indigo-300">{totalMonthSteps.toLocaleString()} / {GRAND_PRIZE_THRESHOLD_STEPS.toLocaleString()} steps</p>
+                 <p className="text-right text-[10px] mt-1 text-indigo-300">{totalMonthHours.toFixed(1)} / {GRAND_PRIZE_THRESHOLD_HOURS.toFixed(1)} hours</p>
              </div>
              
-             {/* Participants List */}
              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm relative z-10">
                 <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-bold text-indigo-100 uppercase tracking-wider flex items-center">
-                        <Users size={12} className="mr-1"/> Legends ({grandParticipants.length})
+                        <Users size={12} className="mr-1"/> Dream Team ({grandParticipants.length})
                     </p>
                     
                     {hasEnteredGrand ? (
@@ -616,7 +647,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                             <CheckCircle2 size={10} className="mr-1" /> Locked In
                         </span>
                     ) : (
-                         totalMonthSteps >= GRAND_PRIZE_THRESHOLD_STEPS && (
+                         totalMonthHours >= GRAND_PRIZE_THRESHOLD_HOURS && (
                             <button 
                                 onClick={handleEnterGrandPrize}
                                 className="text-[10px] bg-yellow-400 text-indigo-900 px-3 py-1 rounded-md font-bold hover:bg-yellow-300 shadow-sm"
@@ -628,7 +659,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
                 
                 {grandParticipants.length === 0 ? (
-                    <p className="text-xs text-indigo-300/60 italic text-center py-2">The podium is waiting...</p>
+                    <p className="text-xs text-indigo-300/60 italic text-center py-2">The podium awaits...</p>
                 ) : (
                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
                         {grandParticipants.map(p => (
@@ -683,7 +714,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </div>
       </div>
       
-      {/* Connection Status Footer for Dashboard */}
+      {/* Connection Status Footer */}
       {!isOnline && (
         <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-red-100 text-red-700 border border-red-200 shadow-lg rounded-full px-4 py-2 flex items-center text-xs font-bold animate-bounce">
             <WifiOff size={14} className="mr-2" /> 
@@ -694,131 +725,285 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </div>
       )}
 
-      {/* LOG ACTIVITY MODAL */}
+      {/* LOG SLEEP MODAL */}
       {showLogModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Log Activity</h2>
+              <h2 className="text-xl font-bold text-gray-900">Log Sleep</h2>
               <button onClick={() => setShowLogModal(false)} className="text-gray-400 hover:text-gray-600">Close</button>
             </div>
 
             {/* Date Picker */}
-            <div className="mb-6 bg-cyan-50 p-4 rounded-xl border border-cyan-100">
+            <div className="mb-6 bg-indigo-50 p-4 rounded-xl border border-indigo-100">
               <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 flex items-center">
-                <Calendar size={14} className="mr-1.5 text-cyan-600" />
-                Date
+                <Calendar size={14} className="mr-1.5 text-indigo-600" />
+                Sleep Date (Night of)
               </label>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 max={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' })}
-                className="w-full border border-cyan-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-cyan-500 outline-none bg-white"
+                className="w-full border border-indigo-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
               />
-              <p className="text-xs text-gray-500 mt-2">
-                {selectedDate === new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' })
-                  ? '📍 Logging for today'
-                  : '⏪ Logging for a past date'}
-              </p>
             </div>
 
             {/* Main Toggle */}
             <div className="bg-gray-100 p-1 rounded-xl flex mb-6">
                 <button 
-                    onClick={() => setLogType('quick')}
-                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${logType === 'quick' ? 'bg-white shadow-sm text-cyan-600' : 'text-gray-500'}`}
+                    onClick={() => setLogType('sleep')}
+                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${logType === 'sleep' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
                 >
-                    <Footprints size={18} className="mr-2" /> Steps
+                    <Bed size={18} className="mr-2" /> Sleep
                 </button>
                 <button 
-                    onClick={() => setLogType('workout')}
-                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${logType === 'workout' ? 'bg-white shadow-sm text-cyan-600' : 'text-gray-500'}`}
+                    onClick={() => setLogType('bonus')}
+                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${logType === 'bonus' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
                 >
-                    <MapPin size={18} className="mr-2" /> Log Walk
+                    <Star size={18} className="mr-2" /> Bonuses
                 </button>
             </div>
 
-            {/* Step 1: Quick Log */}
-            {logType === 'quick' && (
+            {/* Sleep Log Form */}
+            {logType === 'sleep' && (
                  <div className="space-y-4">
-                     <label className="block text-sm font-medium text-gray-500 uppercase tracking-wider">Enter Total Steps</label>
-                     <input
-                        type="number"
-                        placeholder="0"
-                        value={manualSteps}
-                        onChange={(e) => setManualSteps(e.target.value)}
-                        className="w-full border border-gray-200 rounded-2xl px-6 py-4 text-3xl font-bold text-center text-gray-900 focus:ring-2 focus:ring-cyan-500 outline-none"
-                      />
-                      <div className="bg-gray-50 text-center text-xs text-gray-500 py-2 rounded-lg">
-                          Looking to log a hike or run? Switch to "Log Walk" above.
-                      </div>
+                     {/* Bedtime & Wake Time */}
+                     <div className="grid grid-cols-2 gap-4">
+                         <div>
+                             <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center">
+                                 <Moon size={14} className="mr-1 text-indigo-500"/> Bedtime
+                             </label>
+                             <input 
+                                type="time" 
+                                value={bedtime} 
+                                onChange={(e) => setBedtime(e.target.value)} 
+                                className="w-full border border-gray-200 rounded-xl p-3 font-bold text-gray-900 outline-none focus:border-indigo-500 text-center text-lg" 
+                             />
+                         </div>
+                         <div>
+                             <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center">
+                                 <Sun size={14} className="mr-1 text-yellow-500"/> Wake Time
+                             </label>
+                             <input 
+                                type="time" 
+                                value={wakeTime} 
+                                onChange={(e) => setWakeTime(e.target.value)} 
+                                className="w-full border border-gray-200 rounded-xl p-3 font-bold text-gray-900 outline-none focus:border-indigo-500 text-center text-lg" 
+                             />
+                         </div>
+                     </div>
+                     
+                     {/* Calculated Hours Preview */}
+                     <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-center">
+                         <p className="text-indigo-600 text-xs font-bold uppercase mb-1">Total Sleep</p>
+                         <p className="text-3xl font-bold text-indigo-900">{calculatedHours.toFixed(1)} <span className="text-base font-normal">hours</span></p>
+                     </div>
+
+                     {/* Quality Rating */}
+                     <div>
+                         <label className="block text-xs font-bold text-gray-500 mb-2 text-center uppercase tracking-wider">
+                             Sleep Quality (Optional)
+                         </label>
+                         {renderQualityStars()}
+                         {qualityRating > 0 && (
+                           <p className="text-center text-xs text-gray-500 mt-1">
+                             {qualityRating === 1 && "Poor - Restless night"}
+                             {qualityRating === 2 && "Fair - Woke up several times"}
+                             {qualityRating === 3 && "Good - Decent rest"}
+                             {qualityRating === 4 && "Great - Slept well"}
+                             {qualityRating === 5 && "Excellent - Best sleep ever!"}
+                           </p>
+                         )}
+                     </div>
+
+                     {/* Advanced Metrics Toggle */}
+                     <button
+                       type="button"
+                       onClick={() => setShowAdvancedMetrics(!showAdvancedMetrics)}
+                       className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors"
+                     >
+                       <span className="flex items-center text-sm font-medium text-gray-700">
+                         <Activity size={16} className="mr-2 text-indigo-500" />
+                         Advanced Sleep Metrics
+                         <span className="ml-2 text-xs text-gray-400">(from wearable/app)</span>
+                       </span>
+                       {showAdvancedMetrics ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+                     </button>
+
+                     {/* Advanced Metrics Inputs */}
+                     {showAdvancedMetrics && (
+                       <div className="space-y-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200">
+                         <p className="text-xs text-gray-500 mb-2">
+                           Enter data from your Oura, Apple Watch, Fitbit, Whoop, or other sleep tracker.
+                         </p>
+                         
+                         {/* Sleep Score */}
+                         <div>
+                           <label className="block text-xs font-bold text-gray-600 mb-1">
+                             Sleep Score (0-100)
+                           </label>
+                           <input
+                             type="number"
+                             min="0"
+                             max="100"
+                             value={sleepScore}
+                             onChange={(e) => setSleepScore(e.target.value)}
+                             placeholder="e.g., 85"
+                             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                           />
+                           {sleepScore && parseInt(sleepScore) > 0 && (
+                             <div className={`mt-1 text-xs px-2 py-1 rounded inline-block ${getSleepScoreColor(parseInt(sleepScore))}`}>
+                               {parseInt(sleepScore) >= 85 ? 'Excellent!' : parseInt(sleepScore) >= 70 ? 'Good' : parseInt(sleepScore) >= 50 ? 'Fair' : 'Poor'}
+                             </div>
+                           )}
+                         </div>
+
+                         <div className="grid grid-cols-2 gap-3">
+                           {/* Deep Sleep */}
+                           <div>
+                             <label className="block text-xs font-bold text-purple-700 mb-1 flex items-center">
+                               💜 Deep Sleep
+                             </label>
+                             <div className="relative">
+                               <input
+                                 type="number"
+                                 min="0"
+                                 value={deepSleepMin}
+                                 onChange={(e) => setDeepSleepMin(e.target.value)}
+                                 placeholder="mins"
+                                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                               />
+                               <span className="absolute right-3 top-2 text-xs text-gray-400">min</span>
+                             </div>
+                             <p className="text-[10px] text-gray-400 mt-0.5">Ideal: 60-120 min</p>
+                           </div>
+
+                           {/* REM Sleep */}
+                           <div>
+                             <label className="block text-xs font-bold text-blue-700 mb-1 flex items-center">
+                               💙 REM Sleep
+                             </label>
+                             <div className="relative">
+                               <input
+                                 type="number"
+                                 min="0"
+                                 value={remSleepMin}
+                                 onChange={(e) => setRemSleepMin(e.target.value)}
+                                 placeholder="mins"
+                                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                               />
+                               <span className="absolute right-3 top-2 text-xs text-gray-400">min</span>
+                             </div>
+                             <p className="text-[10px] text-gray-400 mt-0.5">Ideal: 90-120 min</p>
+                           </div>
+
+                           {/* Light Sleep */}
+                           <div>
+                             <label className="block text-xs font-bold text-cyan-700 mb-1 flex items-center">
+                               🩵 Light Sleep
+                             </label>
+                             <div className="relative">
+                               <input
+                                 type="number"
+                                 min="0"
+                                 value={lightSleepMin}
+                                 onChange={(e) => setLightSleepMin(e.target.value)}
+                                 placeholder="mins"
+                                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                               />
+                               <span className="absolute right-3 top-2 text-xs text-gray-400">min</span>
+                             </div>
+                             <p className="text-[10px] text-gray-400 mt-0.5">Typically 50-60%</p>
+                           </div>
+
+                           {/* Awake Time */}
+                           <div>
+                             <label className="block text-xs font-bold text-orange-700 mb-1 flex items-center">
+                               🧡 Awake
+                             </label>
+                             <div className="relative">
+                               <input
+                                 type="number"
+                                 min="0"
+                                 value={awakeMin}
+                                 onChange={(e) => setAwakeMin(e.target.value)}
+                                 placeholder="mins"
+                                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                               />
+                               <span className="absolute right-3 top-2 text-xs text-gray-400">min</span>
+                             </div>
+                             <p className="text-[10px] text-gray-400 mt-0.5">Ideal: &lt;30 min</p>
+                           </div>
+                         </div>
+                       </div>
+                     )}
+
+                     {/* Screenshot Upload */}
+                     <div>
+                         <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center">
+                             📸 Screenshot (Optional)
+                         </label>
+                         <input
+                           type="file"
+                           accept="image/*"
+                           onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
+                           className="w-full border border-gray-200 rounded-xl p-2 text-sm text-gray-600"
+                         />
+                         {screenshotFile && (
+                           <p className="text-xs text-green-600 mt-1">✓ {screenshotFile.name}</p>
+                         )}
+                     </div>
+
+                     {/* Notes */}
+                     <div>
+                         <label className="block text-xs font-bold text-gray-500 mb-2">Notes (Optional)</label>
+                         <textarea
+                           value={notes}
+                           onChange={(e) => setNotes(e.target.value)}
+                           placeholder="How did you sleep? Any dreams?"
+                           className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-900 outline-none focus:border-indigo-500 resize-none"
+                           rows={2}
+                         />
+                     </div>
                  </div>
             )}
 
-            {/* Step 2: Workout Log */}
-            {logType === 'workout' && (
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center"><Ruler size={14} className="mr-1"/> DISTANCE (Miles)</label>
-                            <input type="number" value={manualMiles} onChange={(e)=>setManualMiles(e.target.value)} placeholder="0.0" className="w-full border border-gray-200 rounded-xl p-3 font-bold text-gray-900 outline-none focus:border-cyan-500" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center"><Clock size={14} className="mr-1"/> TIME (Mins)</label>
-                            <input type="number" value={manualMins} onChange={(e)=>setManualMins(e.target.value)} placeholder="0" className="w-full border border-gray-200 rounded-xl p-3 font-bold text-gray-900 outline-none focus:border-cyan-500" />
-                        </div>
-                    </div>
-                    <div>
-                         <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center"><Flame size={14} className="mr-1"/> CALORIES (Optional)</label>
-                         <input type="number" value={manualCals} onChange={(e)=>setManualCals(e.target.value)} placeholder="0" className="w-full border border-gray-200 rounded-xl p-3 font-bold text-gray-900 outline-none focus:border-cyan-500" />
-                    </div>
-                    
-                    {/* Realtime Calc Preview */}
-                    <div className="mt-4 bg-cyan-50 border border-cyan-100 rounded-xl p-3 text-center">
-                        <p className="text-cyan-600 text-xs font-bold uppercase mb-1">Calculated Impact</p>
-                        <p className="text-2xl font-bold text-cyan-900">{calculatedSteps.toLocaleString()} <span className="text-sm font-normal">steps</span></p>
-                    </div>
-                </div>
+            {/* Bonus Activities */}
+            {logType === 'bonus' && (
+              <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                 {BONUS_ACTIVITIES.map((activity) => (
+                    <button
+                      key={activity.type}
+                      disabled={isSubmitting}
+                      onClick={() => handleBonusLog(activity.hours, activity.type)}
+                      className="flex items-center w-full p-3 rounded-xl border border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-indigo-600 mr-3 group-hover:bg-white group-hover:text-indigo-500 transition-colors">
+                        {getBonusIcon(activity.icon || 'Moon')}
+                      </div>
+                      <div className="flex-1">
+                          <div className="flex justify-between items-center">
+                              <span className="font-bold text-gray-900 text-sm">{activity.label}</span>
+                              <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">+{activity.hours}h</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-0.5 pr-2">{activity.description}</p>
+                      </div>
+                    </button>
+                 ))}
+              </div>
             )}
 
-            {/* Submit Action */}
-            <button
-                disabled={isSubmitting || calculatedSteps === 0}
-                onClick={handleLogSubmit}
-                className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-lg mt-6 disabled:opacity-50 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center"
-            >
-                {isSubmitting ? 'Saving...' : `Log ${calculatedSteps.toLocaleString()} Steps`}
-            </button>
-
-            {/* Quick Bonus Divider */}
-            <div className="relative flex py-6 items-center">
-               <div className="flex-grow border-t border-gray-200"></div>
-               <span className="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase">Quick Wellness Bonuses</span>
-               <div className="flex-grow border-t border-gray-200"></div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
-               {BONUS_ACTIVITIES.map((activity) => (
-                  <button
-                    key={activity.type}
-                    disabled={isSubmitting}
-                    onClick={() => handleBonusLog(activity.steps, activity.type)}
-                    className="flex items-center w-full p-3 rounded-xl border border-gray-200 hover:border-cyan-500 hover:bg-cyan-50 transition-all text-left group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-cyan-600 mr-3 group-hover:bg-white group-hover:text-cyan-500 transition-colors">
-                      {getBonusIcon(activity.icon || 'Flame')}
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-gray-900 text-sm">{activity.label}</span>
-                            <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">+{activity.steps}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5 pr-2">{activity.description}</p>
-                    </div>
-                  </button>
-               ))}
-            </div>
+            {/* Submit Action (only for sleep tab) */}
+            {logType === 'sleep' && (
+              <button
+                  disabled={isSubmitting || calculatedHours === 0}
+                  onClick={handleLogSubmit}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-2xl font-bold text-lg mt-6 disabled:opacity-50 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center"
+              >
+                  {isSubmitting ? 'Saving...' : `Log ${calculatedHours.toFixed(1)} Hours`}
+              </button>
+            )}
 
           </div>
         </div>
@@ -828,7 +1013,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       {showMilestoneCelebration && milestoneData && milestoneData.grandPrize && (
         <MilestoneCelebration
           grandPrize={milestoneData.grandPrize}
-          totalSteps={milestoneData.totalSteps}
+          totalSteps={milestoneData.totalHours * 1000}
           triggeredBy={milestoneData.triggeredBy}
           onClose={handleMilestoneClose}
         />

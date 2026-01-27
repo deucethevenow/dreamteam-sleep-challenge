@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/dataService';
 import { Team, User } from '../types';
 import { APP_NAME } from '../constants';
-import { ArrowRight, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { ArrowRight, Loader2, Wifi, WifiOff, Moon } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -53,18 +53,41 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col justify-center items-center p-4 md:p-8">
-      <div className="max-w-4xl w-full bg-white rounded-[32px] shadow-2xl overflow-hidden border border-gray-100 relative">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-purple-950 flex flex-col justify-center items-center p-4 md:p-8">
+      {/* Stars background effect */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(50)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-white rounded-full opacity-50"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 2}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="max-w-4xl w-full bg-white rounded-[32px] shadow-2xl overflow-hidden border border-gray-100 relative z-10">
         
         {/* Brand Header */}
-        <div className="bg-gradient-to-r from-cyan-400 to-blue-500 p-10 text-center relative overflow-hidden">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-10 text-center relative overflow-hidden">
            {/* Abstract decoration */}
            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-           <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-900 opacity-10 rounded-full blur-2xl -ml-10 -mb-10"></div>
+           <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-900 opacity-20 rounded-full blur-2xl -ml-10 -mb-10"></div>
+           
+           {/* Moon icon */}
+           <div className="absolute top-4 right-8 text-yellow-300 opacity-30">
+             <Moon size={64} className="fill-current" />
+           </div>
            
            <div className="relative z-10">
-            <h1 className="text-5xl font-bold text-white tracking-tight lowercase mb-2">{APP_NAME}</h1>
-            <p className="text-cyan-50 text-lg font-medium opacity-90">Who is walking today?</p>
+            <h1 className="text-5xl font-bold text-white tracking-tight lowercase mb-2 flex items-center justify-center">
+              <Moon className="mr-3" size={40} />
+              {APP_NAME}
+            </h1>
+            <p className="text-indigo-100 text-lg font-medium opacity-90">Who's ready to catch some Z's? 💤</p>
            </div>
         </div>
 
@@ -72,14 +95,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
               <Loader2 className="animate-spin mb-4" size={32} />
-              <p>Loading roster...</p>
+              <p>Loading dream team...</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-8">
               {teams.map((team) => (
                 <div key={team.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col h-full">
                   {/* Team Header */}
-                  <div className={`flex items-center mb-6 pb-4 border-b ${team.id === 1 ? 'border-cyan-100' : 'border-orange-100'}`}>
+                  <div className={`flex items-center mb-6 pb-4 border-b ${team.id === 1 ? 'border-indigo-100' : 'border-purple-100'}`}>
                     <span className="text-3xl mr-3">{team.icon}</span>
                     <div>
                       <h2 className="text-xl font-bold text-gray-900">{team.name}</h2>
@@ -95,18 +118,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         onClick={() => handleUserSelect(user.id)}
                         disabled={loggingInId !== null}
                         className={`group relative flex items-center p-3 rounded-xl border transition-all duration-200 text-left
-                          ${loggingInId === user.id ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-100 hover:border-cyan-300 hover:shadow-md hover:-translate-y-0.5'}
+                          ${loggingInId === user.id ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-100 hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5'}
                         `}
                       >
-                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-xl mr-3 border border-gray-100 group-hover:scale-110 transition-transform">
+                        <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-xl mr-3 border border-indigo-100 group-hover:scale-110 transition-transform">
                           {user.avatar_emoji}
                         </div>
                         <div className="flex-1">
-                          <span className="font-bold text-gray-800 group-hover:text-cyan-600 transition-colors block">
+                          <span className="font-bold text-gray-800 group-hover:text-indigo-600 transition-colors block">
                             {user.username}
                           </span>
                         </div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-cyan-500">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-500">
                            {loggingInId === user.id ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
                         </div>
                       </button>
@@ -118,14 +141,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
           
           <div className="text-center mt-8 text-xs text-gray-400 max-w-md mx-auto">
-            <p>Select your profile to continue. Your progress is automatically synced across all your devices.</p>
+            <p>Select your profile to start tracking your sleep. Better rest = better you! 🌙</p>
           </div>
         </div>
 
         {/* Connection Status Footer */}
         <div className={`absolute bottom-0 left-0 right-0 p-3 flex items-center justify-center text-xs font-medium border-t transition-colors ${isOnline ? 'bg-white text-green-600 border-gray-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
             {isOnline ? (
-                <span className="flex items-center"><Wifi size={14} className="mr-2" /> Connected to HQ</span>
+                <span className="flex items-center"><Wifi size={14} className="mr-2" /> Connected to Dream HQ</span>
             ) : (
                 <span className="flex items-center"><WifiOff size={14} className="mr-2" /> Offline Mode (Data saving locally)</span>
             )}

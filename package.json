@@ -1,7 +1,7 @@
 {
-  "name": "teamtrek",
+  "name": "dreamteam-sleep-challenge",
   "version": "1.0.0",
-  "description": "A gamified team step challenge platform that boosts productivity, builds culture, and gets your team moving.",
+  "description": "A gamified team sleep challenge platform that boosts wellbeing, builds culture, and gets your team resting better.",
   "type": "module",
   "main": "server.ts",
   "scripts": {
@@ -16,13 +16,12 @@
     "url": "git+https://github.com/deucethevenow/teamtrek.git"
   },
   "keywords": [
-    "step-challenge",
+    "sleep-challenge",
     "team-building",
     "gamification",
-    "fitness",
     "wellness",
+    "sleep-tracking",
     "leaderboard",
-    "slack-bot",
     "typescript",
     "react",
     "express",
