@@ -289,7 +289,7 @@ initDB();
 // Constants for prize thresholds (matching frontend constants.ts)
 const RAFFLE_THRESHOLD_HOURS_SERVER = 42; // Weekly goal: 7 hours * 7 days = 49 hours, 60% = ~29.4, but let's use 42 (6 hours/night avg)
 const GRAND_PRIZE_THRESHOLD_HOURS_SERVER = 168; // Monthly goal: ~196 hours (7 hrs * 28 days), 70% = ~137, but we'll use 168 (6 hrs/night * 28 days)
-const CHALLENGE_START_SERVER = new Date('2025-12-01');
+const CHALLENGE_START_SERVER = new Date('2026-02-01');
 
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)
 const getMountainTimeDateServer = (date: Date = new Date()): string => {
@@ -371,7 +371,7 @@ const autoOptInUserForPrizes = async (pool: Pool, userId: number): Promise<void>
     const totalRes = await pool.query(`
       SELECT COALESCE(SUM(sleep_hours), 0) as total
       FROM sleep_logs
-      WHERE user_id = $1 AND date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+      WHERE user_id = $1 AND date_logged >= '2026-02-01' AND date_logged <= '2026-02-28'
     `, [userId]);
     const totalDecemberHours = parseFloat(totalRes.rows[0].total);
 
@@ -450,7 +450,7 @@ app.post('/api/test-celebration', async (req, res) => {
       const totalRes = await pool.query(`
         SELECT COALESCE(SUM(sleep_hours), 0) as total
         FROM sleep_logs
-        WHERE user_id = $1 AND date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+        WHERE user_id = $1 AND date_logged >= '2026-02-01' AND date_logged <= '2026-02-28'
       `, [userId]);
       const totalHours = parseFloat(totalRes.rows[0].total);
       await sendGrandPrizeQualificationCelebration(pool, userId, totalHours);
@@ -752,7 +752,7 @@ app.get('/api/milestones/50-percent', async (req, res) => {
       const progressRes = await pool.query(`
         SELECT COALESCE(SUM(sleep_hours), 0) as total
         FROM sleep_logs
-        WHERE date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+        WHERE date_logged >= '2026-02-01' AND date_logged <= '2026-02-28'
       `);
       const totalHours = parseFloat(progressRes.rows[0].total);
       const threshold = 980; // 50% of ~1960 hours (10 people * 7 hrs * 28 days)
@@ -1365,12 +1365,12 @@ app.post('/api/december-reset', async (req, res) => {
 
     // Step 1: Count logs before deletion
     const beforeCount = await pool.query('SELECT COUNT(*) as count FROM sleep_logs');
-    const oldLogsCount = await pool.query("SELECT COUNT(*) as count FROM sleep_logs WHERE date_logged < '2025-12-01'");
+    const oldLogsCount = await pool.query("SELECT COUNT(*) as count FROM sleep_logs WHERE date_logged < '2026-02-01'");
     results.push(`Logs before cleanup: ${beforeCount.rows[0].count}`);
     results.push(`Logs before Dec 1 (to delete): ${oldLogsCount.rows[0].count}`);
 
     // Step 2: Delete old sleep logs
-    await pool.query("DELETE FROM sleep_logs WHERE date_logged < '2025-12-01'");
+    await pool.query("DELETE FROM sleep_logs WHERE date_logged < '2026-02-01'");
     results.push("Deleted old sleep logs");
 
     // Step 3: Recalculate banked_hours for all users
@@ -1508,7 +1508,7 @@ app.post('/api/logs', async (req, res) => {
     const beforeRes = await pool.query(`
       SELECT COALESCE(SUM(sleep_hours), 0) as total
       FROM sleep_logs
-      WHERE date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+      WHERE date_logged >= '2026-02-01' AND date_logged <= '2026-02-28'
     `);
     const previousTotalHours = parseFloat(beforeRes.rows[0].total);
 
@@ -1531,7 +1531,7 @@ app.post('/api/logs', async (req, res) => {
     );
 
     // 4. Calculate new total (only if log is within December challenge)
-    const isDecemberLog = date_logged >= '2025-12-01' && date_logged <= '2025-12-31';
+    const isDecemberLog = date_logged >= '2026-02-01' && date_logged <= '2026-02-28';
     const newTotalHours = isDecemberLog ? previousTotalHours + parseFloat(sleep_hours) : previousTotalHours;
 
     // 5. Check for 50% milestone crossing (async, don't block response)
@@ -1623,7 +1623,7 @@ app.patch('/api/logs/:id', async (req, res) => {
     );
 
     // Auto opt-in for prizes (async, in case update pushes user over threshold)
-    const isDecemberLog = date_logged >= '2025-12-01' && date_logged <= '2025-12-31';
+    const isDecemberLog = date_logged >= '2026-02-01' && date_logged <= '2026-02-28';
     if (isDecemberLog && hoursDifference > 0) {
       autoOptInUserForPrizes(pool, oldLog.user_id).catch(err => {
         console.error("Update log auto opt-in error:", err);
@@ -1686,6 +1686,23 @@ app.post('/api/users/:id/grandprize', async (req, res) => {
     res.json({ success: true });
   } catch (err: any) {
     console.error("Grand Prize Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// One-time endpoint to update team assignments for February
+app.post('/api/update-teams-february', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "Database not connected" });
+  try {
+    // New Team 1 (Night Owls): Pam(1), Claire(5), Deuce(6), Arb(8), Anderson(10)
+    // New Team 2 (Dream Chasers): Victoria(2), Jack(3), Francisco(4), Courtney(7), Andy(9)
+    await pool.query(`UPDATE users SET team_id = 1 WHERE id IN (1, 5, 6, 8, 10)`);
+    await pool.query(`UPDATE users SET team_id = 2 WHERE id IN (2, 3, 4, 7, 9)`);
+    
+    const result = await pool.query(`SELECT id, username, team_id FROM users ORDER BY team_id, username`);
+    res.json({ success: true, message: "Teams updated for February!", users: result.rows });
+  } catch (err: any) {
+    console.error("Team update error:", err);
     res.status(500).json({ error: err.message });
   }
 });

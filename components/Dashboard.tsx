@@ -1259,7 +1259,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       {showMilestoneCelebration && milestoneData && milestoneData.grandPrize && (
         <MilestoneCelebration
           grandPrize={milestoneData.grandPrize}
-          totalSteps={milestoneData.totalHours * 1000}
+          totalHours={milestoneData.totalHours}
           triggeredBy={milestoneData.triggeredBy}
           onClose={handleMilestoneClose}
         />

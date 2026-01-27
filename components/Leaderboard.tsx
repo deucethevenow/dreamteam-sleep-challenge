@@ -90,7 +90,7 @@ const Leaderboard: React.FC = () => {
         {activeTab === 'teams' && (
           <div className="divide-y divide-gray-100">
             {teamStats.map((stat, index) => {
-              const metrics = calculateSleepMetrics(stat.totalHours);
+              const metrics = calculateMetrics(stat.totalHours);
               const leaderTotal = teamStats.length > 0 ? teamStats[0].totalHours : 0;
               const gap = leaderTotal - stat.totalHours;
               

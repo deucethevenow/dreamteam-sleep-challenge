@@ -240,7 +240,7 @@ class DataService {
 
   async getRaffleParticipants(): Promise<User[]> {
     try {
-      const CHALLENGE_START = new Date('2025-01-01T00:00:00-07:00');
+      const CHALLENGE_START = new Date('2026-02-01T00:00:00-07:00');
       const today = new Date();
       const todayStr = getMountainTimeDate(today);
       const todayDate = new Date(todayStr + 'T12:00:00-07:00');
@@ -279,7 +279,7 @@ class DataService {
   async getWeeklyHours(userId: number): Promise<number> {
     const logs = await this.fetchLogs();
 
-    const CHALLENGE_START = new Date('2025-01-01T00:00:00-07:00');
+    const CHALLENGE_START = new Date('2026-02-01T00:00:00-07:00');
     const today = new Date();
     const todayStr = getMountainTimeDate(today);
     const todayDate = new Date(todayStr + 'T12:00:00-07:00');
@@ -376,8 +376,8 @@ class DataService {
   async getGlobalProgress(): Promise<GlobalProgress> {
     const logs = await this.fetchLogs();
 
-    const CHALLENGE_START = '2025-01-01';
-    const CHALLENGE_END = '2025-01-31';
+    const CHALLENGE_START = '2026-02-01';
+    const CHALLENGE_END = '2026-02-28';
     const challengeLogs = logs.filter(log =>
       log.date_logged >= CHALLENGE_START && log.date_logged <= CHALLENGE_END
     );
@@ -430,7 +430,7 @@ class DataService {
 
     const history: DailyTeamStat[] = [];
     const today = new Date();
-    const challengeStart = new Date('2025-01-01');
+    const challengeStart = new Date('2026-02-01');
 
     const daysSinceStart = Math.floor((today.getTime() - challengeStart.getTime()) / (1000 * 60 * 60 * 24));
     const daysToShow = Math.min(daysSinceStart + 1, 7);

@@ -27,17 +27,19 @@ export const INITIAL_TEAMS: Team[] = [
 ];
 
 export const INITIAL_USERS = [
-  // Team 1
+  // Team 1 (Night Owls) - New mix for February
   { id: 1, username: "Pam", team_id: 1, avatar_emoji: "🧘‍♀️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 2, username: "Victoria", team_id: 1, avatar_emoji: "🌙", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 3, username: "Jack", team_id: 1, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 4, username: "Francisco", team_id: 1, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 5, username: "Claire", team_id: 1, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 6, username: "Deuce", team_id: 1, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 8, username: "Arb", team_id: 1, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 10, username: "Anderson Camargo", team_id: 1, avatar_emoji: "🎯", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   
-  // Team 2
-  { id: 5, username: "Claire", team_id: 2, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 6, username: "Deuce", team_id: 2, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  // Team 2 (Dream Chasers) - New mix for February
+  { id: 2, username: "Victoria", team_id: 2, avatar_emoji: "🌙", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 3, username: "Jack", team_id: 2, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 4, username: "Francisco", team_id: 2, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 7, username: "Courtney", team_id: 2, avatar_emoji: "🛏️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 8, username: "Arb", team_id: 2, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 9, username: "Andy Cooper", team_id: 2, avatar_emoji: "⭐", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 ];
 
 // Sleep-themed journey milestones

@@ -8,7 +8,7 @@ const getMountainTimeDate = (date: Date = new Date()): string => {
 };
 
 // Challenge starts December 1, 2025. Week 1 = Dec 1-7, Week 2 = Dec 8-14, etc.
-const CHALLENGE_START = new Date('2025-12-01');
+const CHALLENGE_START = new Date('2026-02-01');
 
 // Helper: Get current challenge week (1-4)
 const getCurrentWeek = (): number => {
@@ -724,9 +724,9 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
   const teams = teamsRes.rows;
   const logs = logsRes.rows;
 
-  // Filter logs to only include December 2025 challenge period (Dec 1-31, 2025)
-  const CHALLENGE_START_DATE = '2025-12-01';
-  const CHALLENGE_END_DATE = '2025-12-31';
+  // Filter logs to only include February 2026 challenge period (Feb 1-28, 2026)
+  const CHALLENGE_START_DATE = '2026-02-01';
+  const CHALLENGE_END_DATE = '2026-02-28';
   const decemberLogs = logs.filter((l: any) =>
     l.date_logged >= CHALLENGE_START_DATE && l.date_logged <= CHALLENGE_END_DATE
   );
@@ -1086,9 +1086,9 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   const teams = teamsRes.rows;
   const yesterdayLogs = logsRes.rows;
 
-  // Filter logs to only include December 2025 challenge period
-  const CHALLENGE_START_DATE = '2025-12-01';
-  const CHALLENGE_END_DATE = '2025-12-31';
+  // Filter logs to only include February 2026 challenge period
+  const CHALLENGE_START_DATE = '2026-02-01';
+  const CHALLENGE_END_DATE = '2026-02-28';
   const allLogs = allLogsRes.rows.filter((l: any) =>
     l.date_logged >= CHALLENGE_START_DATE && l.date_logged <= CHALLENGE_END_DATE
   );
