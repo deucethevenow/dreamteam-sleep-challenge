@@ -1690,23 +1690,6 @@ app.post('/api/users/:id/grandprize', async (req, res) => {
   }
 });
 
-// One-time endpoint to update team assignments for February
-app.post('/api/update-teams-february', async (req, res) => {
-  if (!pool) return res.status(503).json({ error: "Database not connected" });
-  try {
-    // New Team 1 (Night Owls): Pam(1), Claire(5), Deuce(6), Arb(8), Anderson(10)
-    // New Team 2 (Dream Chasers): Victoria(2), Jack(3), Francisco(4), Courtney(7), Andy(9)
-    await pool.query(`UPDATE users SET team_id = 1 WHERE id IN (1, 5, 6, 8, 10)`);
-    await pool.query(`UPDATE users SET team_id = 2 WHERE id IN (2, 3, 4, 7, 9)`);
-    
-    const result = await pool.query(`SELECT id, username, team_id FROM users ORDER BY team_id, username`);
-    res.json({ success: true, message: "Teams updated for February!", users: result.rows });
-  } catch (err: any) {
-    console.error("Team update error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 app.post('/api/login', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   const { username, team_id } = req.body;
