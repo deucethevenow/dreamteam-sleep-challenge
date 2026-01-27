@@ -1,6 +1,5 @@
-
 import { Pool } from 'pg';
-import { GLOBAL_GOAL, WEEKLY_GOAL, RAFFLE_THRESHOLD_STEPS, GRAND_PRIZE_THRESHOLD_STEPS, DAILY_GOAL } from '../constants';
+import { GLOBAL_GOAL, WEEKLY_GOAL, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, DAILY_GOAL } from '../constants';
 import { getDailyFunFact, getMorningMotivation } from './geminiService';
 
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)
@@ -32,25 +31,25 @@ const getDaysLeftInWeek = (): number => {
 // Health benefits for each weekly prize
 const PRIZE_HEALTH_BENEFITS: Record<number, { shortBenefit: string; healthTip: string }> = {
   1: {
-    shortBenefit: "Track body composition with DEXA-level accuracy",
-    healthTip: "💡 *Health Tip:* Body composition tracking helps you understand that muscle weighs more than fat - the scale doesn't tell the whole story!"
+    shortBenefit: "Wake up naturally with sunrise simulation",
+    healthTip: "💡 *Health Tip:* Sunrise alarms help regulate your circadian rhythm, making waking up easier and improving daytime energy!"
   },
   2: {
-    shortBenefit: "24 personalized training sessions to build lasting habits",
-    healthTip: "💡 *Health Tip:* Personal training builds accountability - people who work with trainers are 30% more likely to stick with their fitness goals!"
+    shortBenefit: "Total darkness for deeper, uninterrupted sleep",
+    healthTip: "💡 *Health Tip:* Even small amounts of light can disrupt melatonin production. Complete darkness helps you reach deeper sleep stages!"
   },
   3: {
-    shortBenefit: "Better sleep = better recovery, mood & focus",
-    healthTip: "💡 *Health Tip:* Sleep is when your body repairs muscle, consolidates memory, and regulates hormones. It's the ultimate performance enhancer!"
+    shortBenefit: "Release muscle tension for faster sleep onset",
+    healthTip: "💡 *Health Tip:* Physical tension keeps your nervous system alert. Releasing it helps your body shift into rest mode!"
   },
   4: {
-    shortBenefit: "Accelerate muscle recovery & reduce soreness",
-    healthTip: "💡 *Health Tip:* Percussion therapy increases blood flow to muscles, reducing lactic acid buildup and cutting recovery time by up to 50%!"
+    shortBenefit: "Create the coziest sleep environment",
+    healthTip: "💡 *Health Tip:* Weighted blankets provide deep pressure stimulation that increases serotonin and reduces cortisol for calmer sleep!"
   }
 };
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
-const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID || '#teamtrek';
+const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID || '#sleepchallenge';
 
 // Helper: Check if today is Monday in Mountain Time
 const isMondayInMT = (): boolean => {
@@ -122,8 +121,8 @@ const getWeekEndDate = (weekNumber: number): Date => {
   return end;
 };
 
-// Helper: Calculate user's steps for the current challenge week
-const getUserWeeklySteps = (userId: number, logs: any[], weekNumber: number): number => {
+// Helper: Calculate user's sleep hours for the current challenge week
+const getUserWeeklySleep = (userId: number, logs: any[], weekNumber: number): number => {
   const weekStart = getWeekStartDate(weekNumber);
   const weekEnd = getWeekEndDate(weekNumber);
   const weekStartStr = getMountainTimeDate(weekStart);
@@ -135,7 +134,7 @@ const getUserWeeklySteps = (userId: number, logs: any[], weekNumber: number): nu
              l.date_logged >= weekStartStr &&
              l.date_logged <= weekEndStr;
     })
-    .reduce((sum: number, l: any) => sum + l.step_count, 0);
+    .reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
 };
 
 // Helper: Auto opt-in qualified users for weekly prize
@@ -184,43 +183,41 @@ const autoOptInQualifiedUsers = async (pool: Pool, weekNumber: number, qualified
 
 // Fun celebration messages for hitting weekly goal
 const WEEKLY_GOAL_CELEBRATIONS = [
-  "Your legs called. They want a medal. 🏅",
-  "You didn't just hit the goal—you Usain Bolt'd it. 🏃‍♂️💨",
-  "Scientists are baffled. Your step counter might need therapy.",
-  "Plot twist: You're now officially a walking legend. 🦵✨",
-  "Your couch is filing a missing persons report. 🛋️😢",
-  "Breaking news: Local hero makes fitness look suspiciously easy.",
-  "Your future self just high-fived you through time. 🙌",
-  "The ground beneath you is honored by your footsteps. 🌍",
+  "Your pillow called. It's proud of you. 🛏️",
+  "You didn't just hit the goal—you dreampt your way to victory. 💤✨",
+  "Scientists are baffled. Your sleep tracker might need a vacation.",
+  "Plot twist: You're now officially a sleep legend. 😴✨",
+  "Your Netflix queue is filing a missing persons report. 📺😢",
+  "Breaking news: Local hero makes resting look suspiciously easy.",
+  "Your future self just high-fived you through a dream. 🙌",
+  "The sheep you count are honored by your dedication. 🐑",
 ];
 
 // Fun celebration messages for hitting grand prize goal
 const GRAND_PRIZE_CELEBRATIONS = [
-  "You absolute LEGEND. 👑",
-  "Somewhere, a treadmill is weeping with pride. 🏃‍♀️😭",
-  "Your dedication has been noted by the fitness gods. ⚡",
-  "This is like completing a marathon... but with more snacks along the way. 🍕",
-  "You're basically a walking (literally) inspiration now.",
-  "Achievement unlocked: 'Why is this person so dedicated?!'",
-  "Your legs have earned their own Wikipedia page. 📚",
-  "Even your Fitbit is impressed, and it's seen things. 🤯",
+  "You absolute LEGEND of slumber. 👑",
+  "Somewhere, a bed is weeping with pride. 🛏️😭",
+  "Your dedication has been noted by the sleep gods. ⚡",
+  "This is like a sleep marathon... but way more comfortable. 🏃‍♀️💤",
+  "You're basically a professional dreamer now.",
+  "Achievement unlocked: 'Why is this person so well-rested?!'",
+  "Your pillow has earned its own Wikipedia page. 📚",
+  "Even your Oura ring is impressed, and it's seen things. 🤯",
 ];
 
 // Fun stats to show
-const getFunStats = (steps: number) => {
-  const miles = (steps / 2222).toFixed(1);
-  const calories = Math.round(steps * 0.05);
-  const minutesWalking = Math.round(steps / 100);
-  const elephantLength = (steps * 0.0008 / 6).toFixed(1); // avg step ~0.8m, elephant ~6m
-  const burgersBurned = (calories / 550).toFixed(1);
-  const phonesCharged = Math.round(calories / 10);
+const getFunStats = (hours: number) => {
+  const dreams = Math.round(hours * 4); // ~4 dreams per night
+  const sleepCycles = Math.round(hours / 1.5);
+  const energyRestored = Math.min(100, Math.round(hours * 12.5));
+  const koalasEnvied = Math.round(hours / 22 * 10) / 10; // Koalas sleep 22 hrs/day
 
   const funFacts = [
-    `📏 That's *${miles} miles*—enough to outrun most of your problems`,
-    `🔥 *${calories} calories* burned. That's ${burgersBurned} burgers. Math checks out. 🍔`,
-    `⏱️ *${minutesWalking} minutes* of walking. Netflix who?`,
-    `🐘 You walked the length of *${elephantLength} elephants*. They're impressed.`,
-    `📱 You generated enough human energy to charge *${phonesCharged} phones*. Sort of. Science is fuzzy.`,
+    `💭 That's roughly *${dreams} dreams*—your subconscious has been busy!`,
+    `🔄 *${sleepCycles} sleep cycles* completed. Your brain thanks you for the maintenance. 🧠`,
+    `⚡ *${energyRestored}% energy* restored. You're basically recharged!`,
+    `🐨 You've slept *${koalasEnvied}x* what a busy human normally would. Koalas are impressed.`,
+    `🌙 That's *${Math.round(hours / 8)} perfect nights* of sleep. Quality rest = quality life!`,
   ];
 
   return funFacts[Math.floor(Math.random() * funFacts.length)];
@@ -231,7 +228,7 @@ export const sendWeeklyPrizeQualificationCelebration = async (
   pool: Pool,
   userId: number,
   weekNumber: number,
-  weeklySteps: number
+  weeklyHours: number
 ): Promise<void> => {
   try {
     // Get user info
@@ -254,14 +251,14 @@ export const sendWeeklyPrizeQualificationCelebration = async (
 
     // Pick random celebration message
     const celebration = WEEKLY_GOAL_CELEBRATIONS[Math.floor(Math.random() * WEEKLY_GOAL_CELEBRATIONS.length)];
-    const funStat = getFunStats(weeklySteps);
+    const funStat = getFunStats(weeklyHours);
 
     const blocks = [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `🎉 *WEEKLY PRIZE ALERT!* 🎉\n\n${user.avatar_emoji || '🏃'} *${user.username}* just qualified for the *Week ${weekNumber}* prize drawing!`
+          text: `🎉 *WEEKLY PRIZE ALERT!* 🎉\n\n${user.avatar_emoji || '😴'} *${user.username}* just qualified for the *Week ${weekNumber}* prize drawing!`
         }
       },
       {
@@ -276,7 +273,7 @@ export const sendWeeklyPrizeQualificationCelebration = async (
         elements: [
           {
             type: "mrkdwn",
-            text: `🎯 *${weeklySteps.toLocaleString()} steps* this week • ${funStat}`
+            text: `🎯 *${weeklyHours.toFixed(1)} hours* this week • ${funStat}`
           }
         ]
       },
@@ -302,7 +299,7 @@ export const sendWeeklyPrizeQualificationCelebration = async (
 export const sendGrandPrizeQualificationCelebration = async (
   pool: Pool,
   userId: number,
-  totalSteps: number
+  totalHours: number
 ): Promise<void> => {
   try {
     // Get user info
@@ -324,7 +321,7 @@ export const sendGrandPrizeQualificationCelebration = async (
 
     // Pick random celebration message
     const celebration = GRAND_PRIZE_CELEBRATIONS[Math.floor(Math.random() * GRAND_PRIZE_CELEBRATIONS.length)];
-    const funStat = getFunStats(totalSteps);
+    const funStat = getFunStats(totalHours);
 
     const blocks = [
       {
@@ -338,14 +335,14 @@ export const sendGrandPrizeQualificationCelebration = async (
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `${user.avatar_emoji || '🏃'} *${user.username}* has unlocked entry into the *GRAND PRIZE* drawing!\n\n> _${celebration}_`
+          text: `${user.avatar_emoji || '😴'} *${user.username}* has unlocked entry into the *GRAND PRIZE* drawing!\n\n> _${celebration}_`
         }
       },
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `📊 *The Stats Don't Lie:*\n• 🚶 *${totalSteps.toLocaleString()} total steps* in December\n• ${funStat}\n• 🎟️ Now entered to win: *${grandPrize?.title || 'The Grand Prize'}*`
+          text: `📊 *The Stats Don't Lie:*\n• 😴 *${totalHours.toFixed(1)} total hours* of sleep this month\n• ${funStat}\n• 🎟️ Now entered to win: *${grandPrize?.title || 'The Grand Prize'}*`
         }
       },
       {
@@ -418,7 +415,6 @@ export const drawWeeklyPrizeWinner = async (pool: Pool, weekNumber: number): Pro
   console.log(`Random selection: index ${randomIndex} = ${winner.username}`);
 
   // 5. Record the winner in the database
-  // Note: winner_name and winner_emoji are fetched via JOIN with users table, not stored directly
   await pool.query(
     'UPDATE prizes SET winner_user_id = $1, drawn_at = NOW() WHERE id = $2',
     [winner.user_id, prize.id]
@@ -467,7 +463,7 @@ const buildPrizeWinnerBlocks = (
       type: "context",
       elements: [{
         type: "mrkdwn",
-        text: `🎲 Randomly selected from *${qualifiedCount}* qualified participants who hit ${RAFFLE_THRESHOLD_STEPS.toLocaleString()} steps during Week ${weekNumber}. Great job everyone! 👏`
+        text: `🎲 Randomly selected from *${qualifiedCount}* qualified participants who hit ${RAFFLE_THRESHOLD_HOURS.toFixed(1)} hours during Week ${weekNumber}. Great job everyone! 👏`
       }]
     },
     {
@@ -481,13 +477,13 @@ const buildGrandPrizeWinnerBlocks = (
   winner: any,
   prize: any,
   qualifiedCount: number,
-  totalSteps: number
+  totalHours: number
 ): any[] => {
   const winnerMention = winner.slack_user_id
     ? `<@${winner.slack_user_id}>`
     : `*${winner.username}*`;
 
-  const funStat = getFunStats(totalSteps);
+  const funStat = getFunStats(totalHours);
   const celebration = GRAND_PRIZE_CELEBRATIONS[Math.floor(Math.random() * GRAND_PRIZE_CELEBRATIONS.length)];
 
   return [
@@ -537,14 +533,14 @@ const buildGrandPrizeWinnerBlocks = (
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `📊 *${winner.username}'s December Stats:*\n• 🚶 *${totalSteps.toLocaleString()} total steps*\n• ${funStat}`
+        text: `📊 *${winner.username}'s December Stats:*\n• 😴 *${totalHours.toFixed(1)} total hours of sleep*\n• ${funStat}`
       }
     },
     {
       type: "context",
       elements: [{
         type: "mrkdwn",
-        text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit 70% of their goal (${GRAND_PRIZE_THRESHOLD_STEPS.toLocaleString()}+ steps). What an incredible December! 🎉`
+        text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit their sleep goal (${GRAND_PRIZE_THRESHOLD_HOURS.toFixed(1)}+ hours). What an incredible December! 🎉`
       }]
     },
     {
@@ -554,7 +550,7 @@ const buildGrandPrizeWinnerBlocks = (
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*🙏 THANK YOU TO EVERYONE WHO PARTICIPATED!*\n\nYou all crushed it this month. Whether you won a prize or not, you invested in your health—and that's the real win. 💪\n\n_See you at the next challenge!_ 🚀`
+        text: `*🙏 THANK YOU TO EVERYONE WHO PARTICIPATED!*\n\nYou all crushed it this month. Whether you won a prize or not, you invested in your sleep health—and that's the real win. 💪\n\n_See you at the next challenge!_ 🚀`
       }
     }
   ];
@@ -566,7 +562,7 @@ export const drawGrandPrizeWinner = async (pool: Pool): Promise<{
   prize: any | null;
   qualifiedCount: number;
   alreadyDrawn: boolean;
-  totalSteps: number;
+  totalHours: number;
 }> => {
   console.log(`Drawing GRAND PRIZE winner...`);
 
@@ -577,7 +573,7 @@ export const drawGrandPrizeWinner = async (pool: Pool): Promise<{
 
   if (prizeRes.rows.length === 0) {
     console.log(`No grand prize found in database`);
-    return { winner: null, prize: null, qualifiedCount: 0, alreadyDrawn: false, totalSteps: 0 };
+    return { winner: null, prize: null, qualifiedCount: 0, alreadyDrawn: false, totalHours: 0 };
   }
 
   const prize = prizeRes.rows[0];
@@ -585,7 +581,7 @@ export const drawGrandPrizeWinner = async (pool: Pool): Promise<{
   // 2. Check if already drawn
   if (prize.winner_user_id !== null) {
     console.log(`Grand prize already drawn (winner_user_id: ${prize.winner_user_id})`);
-    return { winner: null, prize, qualifiedCount: 0, alreadyDrawn: true, totalSteps: 0 };
+    return { winner: null, prize, qualifiedCount: 0, alreadyDrawn: true, totalHours: 0 };
   }
 
   // 3. Get all users who qualified for grand prize (grand_prize_entry = TRUE)
@@ -601,7 +597,7 @@ export const drawGrandPrizeWinner = async (pool: Pool): Promise<{
 
   if (qualifiedUsers.length === 0) {
     console.log(`No users qualified for grand prize - skipping draw`);
-    return { winner: null, prize, qualifiedCount: 0, alreadyDrawn: false, totalSteps: 0 };
+    return { winner: null, prize, qualifiedCount: 0, alreadyDrawn: false, totalHours: 0 };
   }
 
   // 4. Random selection - using crypto-grade randomness for fairness
@@ -610,12 +606,12 @@ export const drawGrandPrizeWinner = async (pool: Pool): Promise<{
 
   console.log(`Random selection: index ${randomIndex} = ${winner.username}`);
 
-  // 5. Get winner's total December steps for stats
-  const stepsRes = await pool.query(
-    `SELECT COALESCE(SUM(step_count), 0) as total FROM activity_logs WHERE user_id = $1`,
+  // 5. Get winner's total December sleep hours for stats
+  const hoursRes = await pool.query(
+    `SELECT COALESCE(SUM(sleep_hours), 0) as total FROM sleep_logs WHERE user_id = $1`,
     [winner.id]
   );
-  const totalSteps = parseInt(stepsRes.rows[0].total);
+  const totalHours = parseFloat(hoursRes.rows[0].total);
 
   // 6. Record the winner in the database
   await pool.query(
@@ -625,7 +621,7 @@ export const drawGrandPrizeWinner = async (pool: Pool): Promise<{
 
   console.log(`🏆 GRAND PRIZE winner recorded: ${winner.username} (user_id: ${winner.id})`);
 
-  return { winner, prize, qualifiedCount: qualifiedUsers.length, alreadyDrawn: false, totalSteps };
+  return { winner, prize, qualifiedCount: qualifiedUsers.length, alreadyDrawn: false, totalHours };
 };
 
 // Announce grand prize winner to Slack
@@ -635,7 +631,7 @@ export const announceGrandPrizeWinner = async (pool: Pool): Promise<{
   winner?: any;
 }> => {
   try {
-    const { winner, prize, qualifiedCount, alreadyDrawn, totalSteps } = await drawGrandPrizeWinner(pool);
+    const { winner, prize, qualifiedCount, alreadyDrawn, totalHours } = await drawGrandPrizeWinner(pool);
 
     if (alreadyDrawn) {
       return { success: false, message: "Grand prize has already been drawn" };
@@ -646,7 +642,7 @@ export const announceGrandPrizeWinner = async (pool: Pool): Promise<{
     }
 
     // Build and post celebration blocks to Slack
-    const blocks = buildGrandPrizeWinnerBlocks(winner, prize, qualifiedCount, totalSteps);
+    const blocks = buildGrandPrizeWinnerBlocks(winner, prize, qualifiedCount, totalHours);
     await postToSlack(blocks);
 
     return {
@@ -655,7 +651,7 @@ export const announceGrandPrizeWinner = async (pool: Pool): Promise<{
       winner: {
         id: winner.id,
         username: winner.username,
-        totalSteps,
+        totalHours,
         team: winner.team_name
       }
     };
@@ -665,19 +661,18 @@ export const announceGrandPrizeWinner = async (pool: Pool): Promise<{
   }
 };
 
-// 1. Activity Log Notification
+// 1. Sleep Log Notification
 export const sendSlackLog = async (
   username: string,
   teamName: string,
   teamIcon: string,
-  steps: number,
-  activityType: string,
+  hours: number,
+  notes: string,
   dailyTotal: number,
   monthlyTotal: number,
   dateLogged?: string
 ) => {
-  const isBonus = activityType.includes('Bonus');
-  const emoji = isBonus ? '🌟' : '👟';
+  const emoji = '😴';
 
   // Determine if this is for today or a past date (using Mountain Time)
   const today = getMountainTimeDate();
@@ -686,12 +681,12 @@ export const sendSlackLog = async (
 
   // Fun milestone callouts
   let milestoneText = '';
-  if (dailyTotal >= 15000) {
-    milestoneText = ' 🔥 *BEAST MODE!*';
-  } else if (dailyTotal >= 10000) {
-    milestoneText = ' 🎯 *10K Club!*';
-  } else if (dailyTotal >= 7000) {
-    milestoneText = ' ✅ *Daily goal crushed!*';
+  if (dailyTotal >= 9) {
+    milestoneText = ' 🏆 *SLEEP CHAMPION!*';
+  } else if (dailyTotal >= 8) {
+    milestoneText = ' 🎯 *8 Hour Club!*';
+  } else if (dailyTotal >= 7) {
+    milestoneText = ' ✅ *Great rest!*';
   }
 
   const blocks = [
@@ -699,7 +694,7 @@ export const sendSlackLog = async (
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `${emoji} *${username}* ${teamIcon} ${dateText} *${steps.toLocaleString()} steps*!${milestoneText}`
+        text: `${emoji} *${username}* ${teamIcon} ${dateText} *${hours.toFixed(1)} hours* of sleep!${milestoneText}`
       }
     },
     {
@@ -707,7 +702,7 @@ export const sendSlackLog = async (
       elements: [
         {
           type: "mrkdwn",
-          text: `📅 Today: *${dailyTotal.toLocaleString()}* steps | 📊 December: *${monthlyTotal.toLocaleString()}* steps | ${activityType}`
+          text: `📅 Today: *${dailyTotal.toFixed(1)}* hours | 📊 This month: *${monthlyTotal.toFixed(1)}* hours${notes ? ` | 📝 ${notes}` : ''}`
         }
       ]
     }
@@ -716,49 +711,49 @@ export const sendSlackLog = async (
   await postToSlack(blocks);
 };
 
-// 2. Daily Digest - Encourage More Effort! (5 PM MT)
+// 2. Daily Digest - Encourage Better Sleep! (5 PM MT)
 export const sendSlackDailyUpdate = async (pool: Pool) => {
   console.log("Generating Daily Slack Digest...");
 
   // Fetch Data
   const usersRes = await pool.query('SELECT * FROM users');
   const teamsRes = await pool.query('SELECT * FROM teams');
-  const logsRes = await pool.query('SELECT * FROM activity_logs');
+  const logsRes = await pool.query('SELECT * FROM sleep_logs');
 
   const users = usersRes.rows;
   const teams = teamsRes.rows;
   const logs = logsRes.rows;
 
   // Filter logs to only include December 2025 challenge period (Dec 1-31, 2025)
-  const CHALLENGE_START = '2025-12-01';
-  const CHALLENGE_END = '2025-12-31';
+  const CHALLENGE_START_DATE = '2025-12-01';
+  const CHALLENGE_END_DATE = '2025-12-31';
   const decemberLogs = logs.filter((l: any) =>
-    l.date_logged >= CHALLENGE_START && l.date_logged <= CHALLENGE_END
+    l.date_logged >= CHALLENGE_START_DATE && l.date_logged <= CHALLENGE_END_DATE
   );
 
   // Calculate Global Progress (December challenge only)
-  const totalSteps = decemberLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
-  const globalPct = Math.min(100, Math.round((totalSteps / GLOBAL_GOAL) * 100));
+  const totalHours = decemberLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+  const globalPct = Math.min(100, Math.round((totalHours / GLOBAL_GOAL) * 100));
 
   // Today's date in Mountain Time (America/Denver)
   const today = new Date();
   const todayStr = getMountainTimeDate(today);
 
-  // Today's stats
+  // Today's stats (actually last night's sleep logged today)
   const todayLogs = logs.filter((l: any) => l.date_logged === todayStr);
-  const todaySteps = todayLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+  const todayHours = todayLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
 
   // Calculate per-user today stats with team info
   const userTodayStats = users.map((u: any) => {
     const userLogs = todayLogs.filter((l: any) => l.user_id === u.id);
-    const steps = userLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+    const hours = userLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
     const team = teams.find((t: any) => t.id === u.team_id);
-    return { ...u, todaySteps: steps, teamIcon: team?.icon || '👥' };
-  }).sort((a, b) => b.todaySteps - a.todaySteps);
+    return { ...u, todayHours: hours, teamIcon: team?.icon || '👥' };
+  }).sort((a, b) => b.todayHours - a.todayHours);
 
   // Find who hasn't logged today - group by team
   const missingByTeam = teams.map((t: any) => {
-    const teamMembers = userTodayStats.filter(u => u.team_id === t.id && u.todaySteps === 0);
+    const teamMembers = userTodayStats.filter(u => u.team_id === t.id && u.todayHours === 0);
     return {
       teamName: t.name,
       teamIcon: t.icon,
@@ -766,65 +761,66 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
     };
   }).filter(t => t.missing.length > 0);
 
-  // Top 3 performers today
-  const topToday = userTodayStats.slice(0, 3).filter(u => u.todaySteps > 0);
+  // Top 3 sleepers today
+  const topToday = userTodayStats.slice(0, 3).filter(u => u.todayHours > 0);
 
   // Current leader for "today's crown"
   const currentLeader = userTodayStats[0];
 
   // Fun conversions
-  const miles = (todaySteps / 2000).toFixed(1);
-  const calories = Math.round(todaySteps * 0.04);
-  const cheeseburgers = (calories / 354).toFixed(1);
+  const dreams = Math.round(todayHours * 4);
+  const sleepCycles = Math.round(todayHours / 1.5);
 
   // How many hit daily goal today
-  const goalHitters = userTodayStats.filter(u => u.todaySteps >= DAILY_GOAL).length;
+  const goalHitters = userTodayStats.filter(u => u.todayHours >= DAILY_GOAL).length;
 
   // Calculate Team Stats - TODAY and OVERALL
   const teamStats = teams.map((t: any) => {
     const members = users.filter((u: any) => u.team_id === t.id);
     const memberIds = members.map((u: any) => u.id);
 
-    // Today's steps
+    // Today's hours
     const teamTodayLogs = todayLogs.filter((l: any) => memberIds.includes(l.user_id));
-    const todayTotal = teamTodayLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+    const todayTotal = teamTodayLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
 
-    // Overall steps
+    // Overall hours
     const teamAllLogs = logs.filter((l: any) => memberIds.includes(l.user_id));
-    const overallTotal = teamAllLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+    const overallTotal = teamAllLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
 
-    return { ...t, todaySteps: todayTotal, overallSteps: overallTotal, memberCount: members.length };
+    return { ...t, todayHours: todayTotal, overallHours: overallTotal, memberCount: members.length };
   });
 
-  const teamsByToday = [...teamStats].sort((a, b) => b.todaySteps - a.todaySteps);
-  const teamsByOverall = [...teamStats].sort((a, b) => b.overallSteps - a.overallSteps);
+  const teamsByToday = [...teamStats].sort((a, b) => b.todayHours - a.todayHours);
+  const teamsByOverall = [...teamStats].sort((a, b) => b.overallHours - a.overallHours);
 
   const winningTeamToday = teamsByToday[0];
   const leadingTeamOverall = teamsByOverall[0];
   const trailingTeamOverall = teamsByOverall[1];
-  const overallGap = leadingTeamOverall.overallSteps - trailingTeamOverall.overallSteps;
+  const overallGap = leadingTeamOverall.overallHours - trailingTeamOverall.overallHours;
 
-  // Calculate Weekly Stats (Last 7 Days)
-  const oneWeekAgo = new Date(today);
-  oneWeekAgo.setDate(today.getDate() - 7);
+  // Calculate Weekly Stats (Current challenge week)
+  const currentWeek = getCurrentWeek();
+  const weekStart = getWeekStartDate(currentWeek);
+  const weekEnd = getWeekEndDate(currentWeek);
+  const weekStartStr = getMountainTimeDate(weekStart);
+  const weekEndStr = getMountainTimeDate(weekEnd);
 
-  const weeklyLogs = logs.filter((l: any) => {
-      const d = new Date(l.date_logged);
-      return d >= oneWeekAgo;
-  });
+  const weeklyLogs = logs.filter((l: any) =>
+    l.date_logged >= weekStartStr && l.date_logged <= weekEndStr
+  );
 
   const weeklyQualifiers = users.filter((u: any) => {
-      const myWeeklySteps = weeklyLogs
-        .filter((l: any) => l.user_id === u.id)
-        .reduce((sum: number, l: any) => sum + l.step_count, 0);
-      return myWeeklySteps >= RAFFLE_THRESHOLD_STEPS;
+    const myWeeklyHours = weeklyLogs
+      .filter((l: any) => l.user_id === u.id)
+      .reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+    return myWeeklyHours >= RAFFLE_THRESHOLD_HOURS;
   });
 
   const grandPrizeQualifiers = users.filter((u: any) => {
-      const myTotal = logs
-        .filter((l: any) => l.user_id === u.id)
-        .reduce((sum: number, l: any) => sum + l.step_count, 0);
-      return myTotal >= GRAND_PRIZE_THRESHOLD_STEPS;
+    const myTotal = logs
+      .filter((l: any) => l.user_id === u.id)
+      .reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+    return myTotal >= GRAND_PRIZE_THRESHOLD_HOURS;
   });
 
   // Progress bar
@@ -834,17 +830,17 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
   let topText = "";
   if (topToday.length > 0) {
     topText = topToday.map((u, i) =>
-      `${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} *${u.username}* ${u.teamIcon}: ${u.todaySteps.toLocaleString()} steps`
+      `${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} *${u.username}* ${u.teamIcon}: ${u.todayHours.toFixed(1)} hours`
     ).join('\n');
   } else {
-    topText = "_No one has logged steps today yet! Be the first!_";
+    topText = "_No one has logged sleep today yet! Be the first!_";
   }
 
   // Current crown holder message
   let crownMessage = '';
-  if (currentLeader && currentLeader.todaySteps > 0) {
+  if (currentLeader && currentLeader.todayHours > 0) {
     const mention = currentLeader.slack_user_id ? `<@${currentLeader.slack_user_id}>` : currentLeader.username;
-    crownMessage = `\n\n👑 *Current Crown Holder:* ${mention} with ${currentLeader.todaySteps.toLocaleString()} steps\n_Still time to steal the crown!_`;
+    crownMessage = `\n\n👑 *Current Sleep Champion:* ${mention} with ${currentLeader.todayHours.toFixed(1)} hours\n_Great rest leads to great days!_`;
   }
 
   // Missing participants - grouped by team with urgent messaging
@@ -861,7 +857,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       }).join(', ');
       missingText += `${team.teamIcon} *${team.teamName}*: ${mentions}\n`;
     });
-    missingText += `_Every step counts! Don't let your team down!_ 💪`;
+    missingText += `_Every hour of sleep counts! Don't forget to log!_ 💤`;
     missingBlocks.push({
       type: "section",
       text: {
@@ -871,27 +867,15 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
     });
   }
 
-  // Weekly raffle qualifiers
-  const weeklyQualifierMentions = weeklyQualifiers.map((u: any) => {
-    if (u.slack_user_id) {
-      return `<@${u.slack_user_id}>`;
-    } else {
-      return `@${u.slack_username || u.username}`;
-    }
-  }).join(', ');
-  const weeklyRaffleText = weeklyQualifiers.length > 0
-    ? `🎟️ *Weekly Raffle:* ${weeklyQualifiers.length} qualified`
-    : `🎟️ *Weekly Raffle:* No qualifiers yet`;
-
   // Grand prize qualifiers
   const grandPrizeText = grandPrizeQualifiers.length > 0
     ? `🏆 *Grand Prize:* ${grandPrizeQualifiers.length} qualified`
     : `🏆 *Grand Prize:* No qualifiers yet`;
 
   // Generate AI fun fact
-  let funFact = "🌟 Every step counts! Keep up the great work!";
+  let funFact = "🌟 Quality sleep is the foundation of great days! Keep it up!";
   try {
-    funFact = await getDailyFunFact(todaySteps, totalSteps, leadingTeamOverall.name);
+    funFact = await getDailyFunFact(todayHours, totalHours, leadingTeamOverall.name);
   } catch (error) {
     console.error("Error generating fun fact:", error);
   }
@@ -902,12 +886,11 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
     if (leadingTeamOverall.id === trailingTeamOverall.id) {
       teamBattleText = `${leadingTeamOverall.icon} *${leadingTeamOverall.name}* is running away with it!`;
     } else {
-      teamBattleText = `${leadingTeamOverall.icon} *${leadingTeamOverall.name}* leads by *${overallGap.toLocaleString()}* steps!\n${trailingTeamOverall.icon} ${trailingTeamOverall.name} - can you close the gap before midnight? ⏰`;
+      teamBattleText = `${leadingTeamOverall.icon} *${leadingTeamOverall.name}* leads by *${overallGap.toFixed(1)}* hours!\n${trailingTeamOverall.icon} ${trailingTeamOverall.name} - can you close the gap? 💤`;
     }
   }
 
   // ========== WEEKLY PRIZE PROMOTION ==========
-  const currentWeek = getCurrentWeek();
   const daysLeftInWeek = getDaysLeftInWeek();
   const prizeHealthBenefits = PRIZE_HEALTH_BENEFITS[currentWeek];
 
@@ -915,13 +898,13 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
   const prizeRes = await pool.query('SELECT * FROM prizes WHERE week_number = $1', [currentWeek]);
   const currentPrize = prizeRes.rows[0];
 
-  // Calculate weekly steps for each user (for current challenge week)
+  // Calculate weekly sleep for each user (for current challenge week)
   const userWeeklyProgress = users.map((u: any) => {
-    const weeklySteps = getUserWeeklySteps(u.id, logs, currentWeek);
-    const progressPct = Math.min(100, Math.round((weeklySteps / RAFFLE_THRESHOLD_STEPS) * 100));
-    const stepsNeeded = Math.max(0, RAFFLE_THRESHOLD_STEPS - weeklySteps);
-    const qualified = weeklySteps >= RAFFLE_THRESHOLD_STEPS;
-    return { ...u, weeklySteps, progressPct, stepsNeeded, qualified };
+    const weeklyHours = getUserWeeklySleep(u.id, logs, currentWeek);
+    const progressPct = Math.min(100, Math.round((weeklyHours / RAFFLE_THRESHOLD_HOURS) * 100));
+    const hoursNeeded = Math.max(0, RAFFLE_THRESHOLD_HOURS - weeklyHours);
+    const qualified = weeklyHours >= RAFFLE_THRESHOLD_HOURS;
+    return { ...u, weeklyHours, progressPct, hoursNeeded, qualified };
   });
 
   // Auto opt-in qualified users
@@ -933,8 +916,8 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
 
   // Build "close to qualifying" section - show top 3 people who are close but not qualified yet
   const almostThere = userWeeklyProgress
-    .filter(u => !u.qualified && u.weeklySteps > 0)
-    .sort((a, b) => b.weeklySteps - a.weeklySteps)
+    .filter(u => !u.qualified && u.weeklyHours > 0)
+    .sort((a, b) => b.weeklyHours - a.weeklyHours)
     .slice(0, 3);
 
   let prizeProgressText = '';
@@ -942,7 +925,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
     prizeProgressText = almostThere.map((u: any) => {
       const mention = u.slack_user_id ? `<@${u.slack_user_id}>` : u.username;
       const progressBar = "▓".repeat(Math.floor(u.progressPct / 10)) + "░".repeat(10 - Math.floor(u.progressPct / 10));
-      return `${mention}: \`[${progressBar}]\` ${u.progressPct}% - *${u.stepsNeeded.toLocaleString()}* more steps!`;
+      return `${mention}: \`[${progressBar}]\` ${u.progressPct}% - *${u.hoursNeeded.toFixed(1)}* more hours!`;
     }).join('\n');
   }
 
@@ -956,7 +939,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*🎁 THIS WEEK'S PRIZE: ${currentPrize.emoji} ${currentPrize.title}*\n_${prizeHealthBenefits?.shortBenefit || ''}_\n\n🎯 *${RAFFLE_THRESHOLD_STEPS.toLocaleString()}* steps this week to qualify!\n⏰ *${daysLeftInWeek}* day${daysLeftInWeek !== 1 ? 's' : ''} left to enter!`
+        text: `*🎁 THIS WEEK'S PRIZE: ${currentPrize.emoji} ${currentPrize.title}*\n_${prizeHealthBenefits?.shortBenefit || ''}_\n\n🎯 *${RAFFLE_THRESHOLD_HOURS.toFixed(1)}* hours this week to qualify!\n⏰ *${daysLeftInWeek}* day${daysLeftInWeek !== 1 ? 's' : ''} left to enter!`
       }
     });
     prizeBlocks.push({
@@ -971,7 +954,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*🏃 Almost There!*\n${prizeProgressText}`
+          text: `*💤 Almost There!*\n${prizeProgressText}`
         }
       });
     }
@@ -988,13 +971,13 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "header",
       text: {
         type: "plain_text",
-        text: "⚡ Afternoon Push! Still Time to Win!",
+        text: "🌙 Evening Check-in! How's Your Sleep?",
         emoji: true
       }
     },
     {
       type: "context",
-      elements: [{ type: "mrkdwn", text: `_It's 5 PM - you've got until midnight to claim today's crown!_` }]
+      elements: [{ type: "mrkdwn", text: `_It's 5 PM - Don't forget to log last night's sleep!_` }]
     },
     {
       type: "divider"
@@ -1003,14 +986,14 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*📊 TODAY'S STATS*\n*${todaySteps.toLocaleString()}* steps logged\n🎯 ${goalHitters} people hit 7K goal\n🚶 ${miles} miles | 🔥 ${calories.toLocaleString()} cal${crownMessage}`
+        text: `*📊 TODAY'S STATS*\n*${todayHours.toFixed(1)}* hours logged\n🎯 ${goalHitters} people hit 8hr goal\n💭 ~${dreams} dreams | 🔄 ${sleepCycles} sleep cycles${crownMessage}`
       }
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*🏃 TODAY'S LEADERBOARD*\n${topText}`
+        text: `*😴 TODAY'S LEADERBOARD*\n${topText}`
       }
     },
     ...missingBlocks,
@@ -1021,14 +1004,14 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*⚔️ TEAM BATTLE*\n\n*Today:* ${winningTeamToday.icon} ${winningTeamToday.name} is winning (${winningTeamToday.todaySteps.toLocaleString()} steps)\n\n*Overall:*\n${teamBattleText}`
+        text: `*⚔️ TEAM BATTLE*\n\n*Today:* ${winningTeamToday.icon} ${winningTeamToday.name} is winning (${winningTeamToday.todayHours.toFixed(1)} hours)\n\n*Overall:*\n${teamBattleText}`
       }
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `${leadingTeamOverall.icon} ${leadingTeamOverall.name}: *${leadingTeamOverall.overallSteps.toLocaleString()}* total\n${trailingTeamOverall.icon} ${trailingTeamOverall.name}: *${trailingTeamOverall.overallSteps.toLocaleString()}* total`
+        text: `${leadingTeamOverall.icon} ${leadingTeamOverall.name}: *${leadingTeamOverall.overallHours.toFixed(1)}* total\n${trailingTeamOverall.icon} ${trailingTeamOverall.name}: *${trailingTeamOverall.overallHours.toFixed(1)}* total`
       }
     },
     ...prizeBlocks,
@@ -1039,7 +1022,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*🌍 December Progress:* ${globalPct}%\n\`[${progressBar}]\`\n*${totalSteps.toLocaleString()}* steps toward ${GLOBAL_GOAL.toLocaleString()} goal!`
+        text: `*🌍 December Progress:* ${globalPct}%\n\`[${progressBar}]\`\n*${totalHours.toFixed(1)}* hours toward ${GLOBAL_GOAL} hour goal!`
       }
     },
     {
@@ -1063,7 +1046,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🎯 *Haven't logged yet? There's still time!*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Steps Now>"
+        text: "🎯 *Haven't logged yet? There's still time!*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
       }
     }
   ];
@@ -1071,24 +1054,21 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
   await postToSlack(blocks);
 };
 
-// 3. Morning Recap - Celebrate Yesterday's Achievements! (9 AM MT)
+// 3. Morning Recap - Celebrate Yesterday's Sleep! (9 AM MT)
 export const sendSlackMorningRecap = async (pool: Pool) => {
   console.log("Generating Morning Recap...");
 
   // Get yesterday's date in Mountain Time
-  // IMPORTANT: We need to calculate "yesterday" based on Mountain Time, not UTC
-  // Step 1: Get today's date string in Mountain Time
   const todayStr = getMountainTimeDate();
-  // Step 2: Parse that date and subtract one day
   const todayParts = todayStr.split('-').map(Number);
-  const todayInMT = new Date(todayParts[0], todayParts[1] - 1, todayParts[2], 12, 0, 0); // noon to avoid DST issues
+  const todayInMT = new Date(todayParts[0], todayParts[1] - 1, todayParts[2], 12, 0, 0);
   const yesterdayInMT = new Date(todayInMT);
   yesterdayInMT.setDate(todayInMT.getDate() - 1);
   const yesterdayStr = getMountainTimeDate(yesterdayInMT);
 
   console.log(`Today in MT: ${todayStr}, Looking for logs from yesterday: ${yesterdayStr}`);
 
-  // Format yesterday for display (e.g., "Sunday, December 1")
+  // Format yesterday for display
   const yesterdayDisplay = yesterdayInMT.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -1099,18 +1079,18 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   // Fetch Data
   const usersRes = await pool.query('SELECT * FROM users');
   const teamsRes = await pool.query('SELECT * FROM teams');
-  const logsRes = await pool.query('SELECT * FROM activity_logs WHERE date_logged = $1', [yesterdayStr]);
-  const allLogsRes = await pool.query('SELECT * FROM activity_logs');
+  const logsRes = await pool.query('SELECT * FROM sleep_logs WHERE date_logged = $1', [yesterdayStr]);
+  const allLogsRes = await pool.query('SELECT * FROM sleep_logs');
 
   const users = usersRes.rows;
   const teams = teamsRes.rows;
   const yesterdayLogs = logsRes.rows;
 
-  // Filter logs to only include December 2025 challenge period (Dec 1-31, 2025)
-  const CHALLENGE_START = '2025-12-01';
-  const CHALLENGE_END = '2025-12-31';
+  // Filter logs to only include December 2025 challenge period
+  const CHALLENGE_START_DATE = '2025-12-01';
+  const CHALLENGE_END_DATE = '2025-12-31';
   const allLogs = allLogsRes.rows.filter((l: any) =>
-    l.date_logged >= CHALLENGE_START && l.date_logged <= CHALLENGE_END
+    l.date_logged >= CHALLENGE_START_DATE && l.date_logged <= CHALLENGE_END_DATE
   );
 
   console.log(`Found ${yesterdayLogs.length} log entries for ${yesterdayStr}`);
@@ -1121,8 +1101,6 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
     const previousWeek = getPreviousWeek();
     console.log(`Monday detected! Checking if we need to draw Week ${previousWeek} prize...`);
 
-    // Only draw for weeks 1-4, and only if we're past week 1
-    // (On the first Monday Dec 8, we draw Week 1's winner)
     if (previousWeek >= 1 && previousWeek <= 4 && getCurrentWeek() > previousWeek) {
       try {
         const { winner, prize, qualifiedCount, alreadyDrawn } = await drawWeeklyPrizeWinner(pool, previousWeek);
@@ -1138,28 +1116,25 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
       } catch (err) {
         console.error(`Error drawing Week ${previousWeek} prize:`, err);
       }
-    } else {
-      console.log(`Skipping prize draw: previousWeek=${previousWeek}, currentWeek=${getCurrentWeek()}`);
     }
   }
 
   // If no logs for yesterday, send a shorter message
   if (yesterdayLogs.length === 0) {
-    // Check if we have data for today instead (challenge just started scenario)
-    const todayLogsRes = await pool.query('SELECT * FROM activity_logs WHERE date_logged = $1', [todayStr]);
+    const todayLogsRes = await pool.query('SELECT * FROM sleep_logs WHERE date_logged = $1', [todayStr]);
     const todayLogs = todayLogsRes.rows;
     const hasTodayData = todayLogs.length > 0;
 
-    let messageText = `No activity was logged yesterday (${yesterdayDisplay}).`;
+    let messageText = `No sleep was logged yesterday (${yesterdayDisplay}).`;
     if (hasTodayData) {
-      const todaySteps = todayLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
-      messageText += ` But we're off to a great start today with *${todaySteps.toLocaleString()} steps* already logged! 🚀`;
+      const todayHours = todayLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+      messageText += ` But we're off to a great start today with *${todayHours.toFixed(1)} hours* already logged! 🚀`;
     } else {
-      messageText += ` Today is a fresh start! 💪`;
+      messageText += ` Today is a fresh start! 💤`;
     }
 
     const blocks = [
-      ...prizeWinnerBlocks, // Include prize winner announcement if it's Monday
+      ...prizeWinnerBlocks,
       {
         type: "header",
         text: {
@@ -1179,7 +1154,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "🎯 *Who's claiming today's crown?*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Steps Now>"
+          text: "🎯 *Who's logging their sleep today?*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
         }
       }
     ];
@@ -1190,39 +1165,39 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   // Calculate yesterday's stats per user
   const userYesterdayStats = users.map((u: any) => {
     const userLogs = yesterdayLogs.filter((l: any) => l.user_id === u.id);
-    const steps = userLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+    const hours = userLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
     const team = teams.find((t: any) => t.id === u.team_id);
-    return { ...u, yesterdaySteps: steps, teamName: team?.name || 'Unknown', teamIcon: team?.icon || '👥' };
-  }).filter(u => u.yesterdaySteps > 0).sort((a, b) => b.yesterdaySteps - a.yesterdaySteps);
+    return { ...u, yesterdayHours: hours, teamName: team?.name || 'Unknown', teamIcon: team?.icon || '👥' };
+  }).filter(u => u.yesterdayHours > 0).sort((a, b) => b.yesterdayHours - a.yesterdayHours);
 
-  // Total yesterday steps
-  const totalYesterdaySteps = yesterdayLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+  // Total yesterday hours
+  const totalYesterdayHours = yesterdayLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
   const participantCount = userYesterdayStats.length;
 
-  // Find the top walker (winner)
-  const topWalker = userYesterdayStats[0];
+  // Find the top sleeper (winner)
+  const topSleeper = userYesterdayStats[0];
 
-  if (!topWalker) {
-    console.log("No top walker found for yesterday");
+  if (!topSleeper) {
+    console.log("No top sleeper found for yesterday");
     return;
   }
 
   // Record the daily winner in the database
   try {
     await pool.query(`
-      INSERT INTO daily_winners (date, user_id, step_count, announced)
+      INSERT INTO daily_winners (date, user_id, sleep_hours, announced)
       VALUES ($1, $2, $3, TRUE)
       ON CONFLICT (date) DO UPDATE SET announced = TRUE
-    `, [yesterdayStr, topWalker.id, topWalker.yesterdaySteps]);
-    console.log(`Recorded daily winner: ${topWalker.username} with ${topWalker.yesterdaySteps} steps`);
+    `, [yesterdayStr, topSleeper.id, topSleeper.yesterdayHours]);
+    console.log(`Recorded daily winner: ${topSleeper.username} with ${topSleeper.yesterdayHours} hours`);
   } catch (err) {
     console.error("Error recording daily winner:", err);
   }
 
-  // Count total daily wins for the top walker
+  // Count total daily wins for the top sleeper
   const winsRes = await pool.query(
     'SELECT COUNT(*) as win_count FROM daily_winners WHERE user_id = $1',
-    [topWalker.id]
+    [topSleeper.id]
   );
   const totalWins = parseInt(winsRes.rows[0]?.win_count || '1');
 
@@ -1234,32 +1209,32 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
     const teamMembers = users.filter((u: any) => u.team_id === t.id);
     const memberIds = teamMembers.map((u: any) => u.id);
 
-    // Yesterday's steps
+    // Yesterday's hours
     const teamYesterdayLogs = yesterdayLogs.filter((l: any) => memberIds.includes(l.user_id));
-    const yesterdayTotal = teamYesterdayLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+    const yesterdayTotal = teamYesterdayLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
 
-    // Overall steps
+    // Overall hours
     const teamAllLogs = allLogs.filter((l: any) => memberIds.includes(l.user_id));
-    const overallTotal = teamAllLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
+    const overallTotal = teamAllLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
 
-    return { ...t, yesterdaySteps: yesterdayTotal, overallSteps: overallTotal, memberCount: teamMembers.length };
+    return { ...t, yesterdayHours: yesterdayTotal, overallHours: overallTotal, memberCount: teamMembers.length };
   });
 
-  const teamsByYesterday = [...teamStats].sort((a, b) => b.yesterdaySteps - a.yesterdaySteps);
-  const teamsByOverall = [...teamStats].sort((a, b) => b.overallSteps - a.overallSteps);
+  const teamsByYesterday = [...teamStats].sort((a, b) => b.yesterdayHours - a.yesterdayHours);
+  const teamsByOverall = [...teamStats].sort((a, b) => b.overallHours - a.overallHours);
 
   const winningTeamYesterday = teamsByYesterday[0];
   const leadingTeamOverall = teamsByOverall[0];
   const trailingTeamOverall = teamsByOverall[1];
-  const gap = leadingTeamOverall.overallSteps - trailingTeamOverall.overallSteps;
+  const gap = leadingTeamOverall.overallHours - trailingTeamOverall.overallHours;
 
   // How many people hit the daily goal
-  const goalHitters = userYesterdayStats.filter(u => u.yesterdaySteps >= DAILY_GOAL).length;
+  const goalHitters = userYesterdayStats.filter(u => u.yesterdayHours >= DAILY_GOAL).length;
 
   // Generate AI motivation
   let motivation = "Let's keep the momentum going today! 🚀";
   try {
-    motivation = await getMorningMotivation(topWalker.username, topWalker.yesterdaySteps, totalWins);
+    motivation = await getMorningMotivation(topSleeper.username, topSleeper.yesterdayHours, totalWins);
   } catch (error) {
     console.error("Error generating motivation:", error);
   }
@@ -1268,7 +1243,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   const leaderboardText = top5.map((u, i) => {
     const medal = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
     const mention = u.slack_user_id ? `<@${u.slack_user_id}>` : u.username;
-    return `${medal} ${mention} ${u.teamIcon}: *${u.yesterdaySteps.toLocaleString()}* steps`;
+    return `${medal} ${mention} ${u.teamIcon}: *${u.yesterdayHours.toFixed(1)}* hours`;
   }).join('\n');
 
   // Crown text based on win streak
@@ -1284,7 +1259,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   // Team battle section
   const teamBattleText = leadingTeamOverall.id === trailingTeamOverall.id
     ? `${leadingTeamOverall.icon} *${leadingTeamOverall.name}* is dominating!`
-    : `${leadingTeamOverall.icon} *${leadingTeamOverall.name}* leads by *${gap.toLocaleString()}* steps!\n${trailingTeamOverall.icon} *${trailingTeamOverall.name}* - time to close the gap! 🏃`;
+    : `${leadingTeamOverall.icon} *${leadingTeamOverall.name}* leads by *${gap.toFixed(1)}* hours!\n${trailingTeamOverall.icon} *${trailingTeamOverall.name}* - time to catch up! 💤`;
 
   // ========== WEEKLY PRIZE PROMOTION (Morning) ==========
   const currentWeek = getCurrentWeek();
@@ -1295,13 +1270,13 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   const prizeRes = await pool.query('SELECT * FROM prizes WHERE week_number = $1', [currentWeek]);
   const currentPrize = prizeRes.rows[0];
 
-  // Calculate weekly steps for each user (for current challenge week)
+  // Calculate weekly sleep for each user (for current challenge week)
   const userWeeklyProgress = users.map((u: any) => {
-    const weeklySteps = getUserWeeklySteps(u.id, allLogs, currentWeek);
-    const progressPct = Math.min(100, Math.round((weeklySteps / RAFFLE_THRESHOLD_STEPS) * 100));
-    const stepsNeeded = Math.max(0, RAFFLE_THRESHOLD_STEPS - weeklySteps);
-    const qualified = weeklySteps >= RAFFLE_THRESHOLD_STEPS;
-    return { ...u, weeklySteps, progressPct, stepsNeeded, qualified };
+    const weeklyHours = getUserWeeklySleep(u.id, allLogs, currentWeek);
+    const progressPct = Math.min(100, Math.round((weeklyHours / RAFFLE_THRESHOLD_HOURS) * 100));
+    const hoursNeeded = Math.max(0, RAFFLE_THRESHOLD_HOURS - weeklyHours);
+    const qualified = weeklyHours >= RAFFLE_THRESHOLD_HOURS;
+    return { ...u, weeklyHours, progressPct, hoursNeeded, qualified };
   });
 
   // Auto opt-in qualified users
@@ -1311,10 +1286,10 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
     console.log(`Morning recap: Auto opted-in ${newOptIns} new users for week ${currentWeek} prize`);
   }
 
-  // Build "close to qualifying" section - show top 5 people who are close but not qualified yet
+  // Build "close to qualifying" section
   const almostThere = userWeeklyProgress
-    .filter(u => !u.qualified && u.weeklySteps > 0)
-    .sort((a, b) => b.weeklySteps - a.weeklySteps)
+    .filter(u => !u.qualified && u.weeklyHours > 0)
+    .sort((a, b) => b.weeklyHours - a.weeklyHours)
     .slice(0, 5);
 
   let morningPrizeProgressText = '';
@@ -1322,7 +1297,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
     morningPrizeProgressText = almostThere.map((u: any) => {
       const mention = u.slack_user_id ? `<@${u.slack_user_id}>` : u.username;
       const progressBar = "▓".repeat(Math.floor(u.progressPct / 10)) + "░".repeat(10 - Math.floor(u.progressPct / 10));
-      return `${mention}: \`[${progressBar}]\` ${u.progressPct}% (${u.stepsNeeded.toLocaleString()} to go)`;
+      return `${mention}: \`[${progressBar}]\` ${u.progressPct}% (${u.hoursNeeded.toFixed(1)} to go)`;
     }).join('\n');
   }
 
@@ -1342,7 +1317,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
     morningPrizeBlocks.push({
       type: "section",
       fields: [
-        { type: "mrkdwn", text: `*🎯 Goal*\n${RAFFLE_THRESHOLD_STEPS.toLocaleString()} steps` },
+        { type: "mrkdwn", text: `*🎯 Goal*\n${RAFFLE_THRESHOLD_HOURS.toFixed(1)} hours` },
         { type: "mrkdwn", text: `*⏰ Days Left*\n${daysLeftInWeek + 1} day${daysLeftInWeek !== 0 ? 's' : ''}` }
       ]
     });
@@ -1358,7 +1333,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*🏃 Race to Qualify:*\n${morningPrizeProgressText}`
+          text: `*💤 Race to Qualify:*\n${morningPrizeProgressText}`
         }
       });
     }
@@ -1371,12 +1346,12 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   }
 
   const blocks = [
-    ...prizeWinnerBlocks, // Include prize winner announcement if it's Monday
+    ...prizeWinnerBlocks,
     {
       type: "header",
       text: {
         type: "plain_text",
-        text: "🌅 Yesterday's Champions!",
+        text: "🌅 Yesterday's Sleep Champions!",
         emoji: true
       }
     },
@@ -1391,7 +1366,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `🏆 *TOP WALKER*\n\n👑 ${topWalker.slack_user_id ? `<@${topWalker.slack_user_id}>` : `*${topWalker.username}*`}\n*${topWalker.yesterdaySteps.toLocaleString()} steps!*\n${topWalker.teamIcon} ${topWalker.teamName}\n\n${crownText}`
+        text: `🏆 *TOP SLEEPER*\n\n👑 ${topSleeper.slack_user_id ? `<@${topSleeper.slack_user_id}>` : `*${topSleeper.username}*`}\n*${topSleeper.yesterdayHours.toFixed(1)} hours!*\n${topSleeper.teamIcon} ${topSleeper.teamName}\n\n${crownText}`
       }
     },
     {
@@ -1409,11 +1384,11 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
       fields: [
         {
           type: "mrkdwn",
-          text: `*📈 Total Steps*\n${totalYesterdaySteps.toLocaleString()}`
+          text: `*📈 Total Hours*\n${totalYesterdayHours.toFixed(1)}`
         },
         {
           type: "mrkdwn",
-          text: `*🎯 Hit 7K Goal*\n${goalHitters} of ${participantCount}`
+          text: `*🎯 Hit 8hr Goal*\n${goalHitters} of ${participantCount}`
         }
       ]
     },
@@ -1424,14 +1399,14 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*⚔️ TEAM BATTLE*\n\n*Yesterday's Winner:* ${winningTeamYesterday.icon} ${winningTeamYesterday.name} (${winningTeamYesterday.yesterdaySteps.toLocaleString()} steps)\n\n*Overall Standing:*\n${teamBattleText}`
+        text: `*⚔️ TEAM BATTLE*\n\n*Yesterday's Winner:* ${winningTeamYesterday.icon} ${winningTeamYesterday.name} (${winningTeamYesterday.yesterdayHours.toFixed(1)} hours)\n\n*Overall Standing:*\n${teamBattleText}`
       }
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `${leadingTeamOverall.icon} ${leadingTeamOverall.name}: *${leadingTeamOverall.overallSteps.toLocaleString()}* total\n${trailingTeamOverall.icon} ${trailingTeamOverall.name}: *${trailingTeamOverall.overallSteps.toLocaleString()}* total`
+        text: `${leadingTeamOverall.icon} ${leadingTeamOverall.name}: *${leadingTeamOverall.overallHours.toFixed(1)}* total\n${trailingTeamOverall.icon} ${trailingTeamOverall.name}: *${trailingTeamOverall.overallHours.toFixed(1)}* total`
       }
     },
     ...morningPrizeBlocks,
@@ -1449,7 +1424,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🎯 *Who's taking today's crown?*\n<https://teamtrek-1024587728322.us-central1.run.app|Start Logging Now>"
+        text: "🌟 *Ready to log today's sleep?*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
       }
     }
   ];
@@ -1457,779 +1432,197 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   await postToSlack(blocks);
 };
 
-// 4. Helper: Get daily win count for a user
+// Get daily win count for a user
 export const getDailyWinCount = async (pool: Pool, userId: number): Promise<number> => {
-  const res = await pool.query(
-    'SELECT COUNT(*) as win_count FROM daily_winners WHERE user_id = $1',
-    [userId]
-  );
-  return parseInt(res.rows[0]?.win_count || '0');
-};
-
-// 5. Preview Morning Recap for a specific date (dry run, doesn't post to Slack)
-export const previewMorningRecap = async (pool: Pool, targetDate: string): Promise<any> => {
-  console.log(`Previewing Morning Recap for date: ${targetDate}`);
-
-  // Parse target date to get display format
-  const dateParts = targetDate.split('-').map(Number);
-  const targetDateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 12, 0, 0);
-  const dateDisplay = targetDateObj.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'America/Denver'
-  });
-
-  // Fetch Data
-  const usersRes = await pool.query('SELECT * FROM users');
-  const teamsRes = await pool.query('SELECT * FROM teams');
-  const logsRes = await pool.query('SELECT * FROM activity_logs WHERE date_logged = $1', [targetDate]);
-  const allLogsRes = await pool.query('SELECT * FROM activity_logs');
-
-  const users = usersRes.rows;
-  const teams = teamsRes.rows;
-  const targetLogs = logsRes.rows;
-  const allLogs = allLogsRes.rows;
-
-  // Calculate stats per user for target date
-  const userStats = users.map((u: any) => {
-    const userLogs = targetLogs.filter((l: any) => l.user_id === u.id);
-    const steps = userLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
-    const team = teams.find((t: any) => t.id === u.team_id);
-    return { ...u, steps, teamName: team?.name || 'Unknown', teamIcon: team?.icon || '👥' };
-  }).filter(u => u.steps > 0).sort((a, b) => b.steps - a.steps);
-
-  const totalSteps = targetLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
-  const participantCount = userStats.length;
-  const topWalker = userStats[0];
-
-  // Team stats
-  const teamStats = teams.map((t: any) => {
-    const teamMembers = users.filter((u: any) => u.team_id === t.id);
-    const memberIds = teamMembers.map((u: any) => u.id);
-    const teamLogs = targetLogs.filter((l: any) => memberIds.includes(l.user_id));
-    const daySteps = teamLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
-    const teamAllLogs = allLogs.filter((l: any) => memberIds.includes(l.user_id));
-    const totalSteps = teamAllLogs.reduce((sum: number, l: any) => sum + l.step_count, 0);
-    return { ...t, daySteps, totalSteps };
-  });
-
-  return {
-    date: targetDate,
-    dateDisplay,
-    logsFound: targetLogs.length,
-    totalSteps,
-    participantCount,
-    topWalker: topWalker ? {
-      username: topWalker.username,
-      steps: topWalker.steps,
-      team: topWalker.teamName
-    } : null,
-    leaderboard: userStats.slice(0, 5).map((u, i) => ({
-      rank: i + 1,
-      username: u.username,
-      steps: u.steps,
-      team: u.teamName
-    })),
-    teamStats: teamStats.map(t => ({
-      name: t.name,
-      icon: t.icon,
-      daySteps: t.daySteps,
-      totalSteps: t.totalSteps
-    }))
-  };
-};
-
-// ==========================================
-// 50% MILESTONE CELEBRATION FEATURE
-// ==========================================
-
-const FIFTY_PERCENT_THRESHOLD = Math.floor(GLOBAL_GOAL * 0.5); // 1,085,000 steps
-const TOTAL_CHALLENGE_DAYS = 31;
-
-// Calculate pace analysis for the team's progress
-const calculatePaceAnalysis = (totalSteps: number): {
-  projectedEndDate: Date;
-  daysAheadBehind: number;
-  currentPace: number;
-  requiredPace: number;
-  isAheadOfSchedule: boolean;
-} => {
-  const challengeEnd = new Date('2025-12-31');
-
-  // Get current date in Mountain Time
-  const todayStr = getMountainTimeDate();
-  const todayParts = todayStr.split('-').map(Number);
-  const todayMT = new Date(todayParts[0], todayParts[1] - 1, todayParts[2], 12, 0, 0);
-
-  // Days since challenge start (Dec 1)
-  const startDate = new Date('2025-12-01');
-  const daysSinceStart = Math.max(1, Math.floor(
-    (todayMT.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-  ) + 1);
-  const daysRemaining = TOTAL_CHALLENGE_DAYS - daysSinceStart;
-
-  // Current pace (steps per day so far)
-  const currentPace = Math.round(totalSteps / daysSinceStart);
-
-  // Required pace to finish on time
-  const stepsRemaining = GLOBAL_GOAL - totalSteps;
-  const requiredPace = daysRemaining > 0
-    ? Math.round(stepsRemaining / daysRemaining)
-    : Infinity;
-
-  // Projected completion date at current pace
-  const daysToComplete = currentPace > 0
-    ? Math.ceil((GLOBAL_GOAL - totalSteps) / currentPace)
-    : Infinity;
-  const projectedEndDate = new Date(todayMT);
-  projectedEndDate.setDate(projectedEndDate.getDate() + daysToComplete);
-
-  // Days ahead or behind schedule
-  const idealStepsAtThisPoint = (GLOBAL_GOAL / TOTAL_CHALLENGE_DAYS) * daysSinceStart;
-  const stepsAheadBehind = totalSteps - idealStepsAtThisPoint;
-  const daysAheadBehind = Math.round(stepsAheadBehind / (GLOBAL_GOAL / TOTAL_CHALLENGE_DAYS));
-
-  return {
-    projectedEndDate,
-    daysAheadBehind,
-    currentPace,
-    requiredPace,
-    isAheadOfSchedule: stepsAheadBehind >= 0
-  };
-};
-
-// Get top contributors for the milestone announcement
-const getTopContributors = async (pool: Pool, limit: number = 5): Promise<Array<{
-  userId: number;
-  username: string;
-  avatarEmoji: string;
-  slackUserId: string | null;
-  totalSteps: number;
-  teamName: string;
-  teamIcon: string;
-}>> => {
-  const result = await pool.query(`
-    SELECT
-      u.id as user_id,
-      u.username,
-      u.avatar_emoji,
-      u.slack_user_id,
-      COALESCE(SUM(al.step_count), 0) as total_steps,
-      t.name as team_name,
-      t.icon as team_icon
-    FROM users u
-    JOIN teams t ON u.team_id = t.id
-    LEFT JOIN activity_logs al ON u.id = al.user_id
-      AND al.date_logged >= '2025-12-01'
-      AND al.date_logged <= '2025-12-31'
-    GROUP BY u.id, u.username, u.avatar_emoji, u.slack_user_id, t.name, t.icon
-    ORDER BY total_steps DESC
-    LIMIT $1
-  `, [limit]);
-
-  return result.rows.map(row => ({
-    userId: row.user_id,
-    username: row.username,
-    avatarEmoji: row.avatar_emoji,
-    slackUserId: row.slack_user_id,
-    totalSteps: parseInt(row.total_steps),
-    teamName: row.team_name,
-    teamIcon: row.team_icon
-  }));
-};
-
-// Build the Slack Block Kit message for 50% milestone
-const build50PercentBlocks = (
-  grandPrize: any,
-  triggeringUser: any,
-  topContributors: any[],
-  paceAnalysis: any,
-  totalSteps: number
-): any[] => {
-  const triggerMention = triggeringUser.slack_user_id
-    ? `<@${triggeringUser.slack_user_id}>`
-    : `*${triggeringUser.username}*`;
-
-  // Format projected date
-  const projectedDateStr = paceAnalysis.projectedEndDate.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric'
-  });
-
-  // Pace message
-  let paceMessage = '';
-  if (paceAnalysis.isAheadOfSchedule) {
-    const days = Math.abs(paceAnalysis.daysAheadBehind);
-    paceMessage = days > 0
-      ? `🚀 *${days} day${days !== 1 ? 's' : ''} AHEAD of schedule!*`
-      : `📍 *Right on track!*`;
-  } else {
-    const days = Math.abs(paceAnalysis.daysAheadBehind);
-    paceMessage = `⚡ *${days} day${days !== 1 ? 's' : ''} behind schedule* - Let's pick up the pace!`;
-  }
-
-  // Top contributors text with medals
-  const contributorsText = topContributors.map((c, i) => {
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
-    const mention = c.slackUserId ? `<@${c.slackUserId}>` : c.username;
-    return `${medal} ${mention} ${c.teamIcon} - *${c.totalSteps.toLocaleString()}* steps`;
-  }).join('\n');
-
-  return [
-    // HEADER - Big celebration
-    {
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: "🎉🏆 HALFWAY THERE! 50% MILESTONE UNLOCKED! 🏆🎉",
-        emoji: true
-      }
-    },
-
-    // CELEBRATION MESSAGE
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `<!here> *INCREDIBLE TEAM ACHIEVEMENT!*\n\nThe Recess team has collectively walked *${totalSteps.toLocaleString()} steps* - that's *HALF* of our December goal! 🎊\n\n${triggerMention} pushed us over the finish line with their latest log! ${triggeringUser.avatar_emoji || '🎯'}`
-      }
-    },
-
-    { type: "divider" },
-
-    // GRAND PRIZE REVEAL - The fun part!
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*🥁🥁🥁 DRUMROLL PLEASE... 🥁🥁🥁*`
-      }
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*🏆 THE GRAND PRIZE IS...*\n\n_No, it's not a beach vacation..._\n\n_(Though if you win Option A, your home will basically become a resort for your muscles)_`
-      }
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*💪 OPTION A: BowFlex SelectTech 552 Dumbbells*\nReplace *15 sets of weights* with ONE adjustable set! 5-52.5 lbs with a simple dial twist. Basically a whole gym that fits under your desk. Your future gains are calling. 📞🏋️\n\n*OR*\n\n*🧘 OPTION B: THREE Premium Massage Sessions*\nThree 60-minute deep tissue dreams at your favorite spa. Because after walking 2.17 million steps, *your legs deserve to be treated like royalty*. 👑`
-      }
-    },
-    {
-      type: "context",
-      elements: [{
-        type: "mrkdwn",
-        text: `_Plot twist: You walked all those steps for the chance to either lift more weight OR have someone rub your sore legs. We see you. We get you. 😂_`
-      }]
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*🎟️ HOW TO ENTER THE DRAWING:*\nHit *70%* of your personal goal (*${GRAND_PRIZE_THRESHOLD_STEPS.toLocaleString()} steps*) and you're automatically entered!\n\n_That's 170 steps per day if you haven't started. Or like... one enthusiastic walk to the coffee machine and back. Times 170._`
-      }
-    },
-
-    { type: "divider" },
-
-    // PACE ANALYSIS
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*📊 ARE WE GONNA MAKE IT? (PACE CHECK)*\n\n${paceMessage}\n\n*Current team pace:* ${paceAnalysis.currentPace.toLocaleString()} steps/day\n*Projected finish:* ${projectedDateStr}`
-      }
-    },
-
-    { type: "divider" },
-
-    // TOP CONTRIBUTORS
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*👑 RECESS WALKING LEGENDS (SO FAR)*\n\n${contributorsText}\n\n_These absolute units have been carrying. Respectfully._`
-      }
-    },
-
-    { type: "divider" },
-
-    // CALL TO ACTION
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*🔥 THE SECOND HALF BEGINS NOW!*\n\nWe did the hard part - we believed we could. Now let's finish what we started.\n\n*Only ${(GLOBAL_GOAL - totalSteps).toLocaleString()} steps to go!* _(That's basically just everyone taking a few extra laps around the block... for the next few weeks... together... as a team)_\n\n<https://teamtrek-1024587728322.us-central1.run.app|📲 Log Your Steps & Get That Prize!>`
-      }
-    },
-
-    // CELEBRATORY FOOTER
-    {
-      type: "context",
-      elements: [{
-        type: "mrkdwn",
-        text: "🦶 Every step counts. Literally. We're counting them. That's the whole point. LET'S GOOOOO! 🚀"
-      }]
-    }
-  ];
-};
-
-// Send the 50% milestone announcement to Slack
-const send50PercentMilestoneAnnouncement = async (
-  pool: Pool,
-  triggeringUserId: number,
-  totalSteps: number
-): Promise<void> => {
-  console.log("🎉 Sending 50% milestone celebration announcement!");
-
   try {
-    // 1. Get the grand prize details
-    const prizeRes = await pool.query(
-      `SELECT * FROM prizes WHERE prize_type = 'grand'`
+    const result = await pool.query(
+      'SELECT COUNT(*) as count FROM daily_winners WHERE user_id = $1',
+      [userId]
     );
-    const grandPrize = prizeRes.rows[0];
-
-    // 2. Get the triggering user info
-    const userRes = await pool.query(`
-      SELECT u.*, t.name as team_name, t.icon as team_icon
-      FROM users u
-      JOIN teams t ON u.team_id = t.id
-      WHERE u.id = $1
-    `, [triggeringUserId]);
-    const triggeringUser = userRes.rows[0];
-
-    // 3. Get top contributors
-    const topContributors = await getTopContributors(pool, 5);
-
-    // 4. Calculate pace analysis
-    const paceAnalysis = calculatePaceAnalysis(totalSteps);
-
-    // 5. Build the Slack blocks
-    const blocks = build50PercentBlocks(grandPrize, triggeringUser, topContributors, paceAnalysis, totalSteps);
-
-    // 6. Post to Slack
-    await postToSlack(blocks);
-
-    console.log("✅ 50% milestone announcement sent successfully!");
+    return parseInt(result.rows[0]?.count || '0');
   } catch (err) {
-    console.error("❌ Error sending 50% milestone announcement:", err);
+    console.error("Error getting daily win count:", err);
+    return 0;
+  }
+};
+
+// Preview morning recap for a specific date
+export const previewMorningRecap = async (pool: Pool, dateStr: string): Promise<any> => {
+  try {
+    const logsRes = await pool.query('SELECT * FROM sleep_logs WHERE date_logged = $1', [dateStr]);
+    const usersRes = await pool.query('SELECT * FROM users');
+    const teamsRes = await pool.query('SELECT * FROM teams');
+
+    const logs = logsRes.rows;
+    const users = usersRes.rows;
+    const teams = teamsRes.rows;
+
+    const userStats = users.map((u: any) => {
+      const userLogs = logs.filter((l: any) => l.user_id === u.id);
+      const hours = userLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+      const team = teams.find((t: any) => t.id === u.team_id);
+      return { username: u.username, hours, team: team?.name };
+    }).filter(u => u.hours > 0).sort((a, b) => b.hours - a.hours);
+
+    return {
+      date: dateStr,
+      totalLogs: logs.length,
+      totalHours: logs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0),
+      topSleeper: userStats[0] || null,
+      leaderboard: userStats.slice(0, 5)
+    };
+  } catch (err: any) {
+    console.error("Preview error:", err);
     throw err;
   }
 };
 
-// Main function: Check if 50% milestone was just crossed and announce it
+// Check and announce milestone (50%, 100%, etc.)
 export const checkAndAnnounceMilestone = async (
   pool: Pool,
   userId: number,
   logId: number,
-  previousTotalSteps: number,
-  newTotalSteps: number
-): Promise<boolean> => {
-  // Quick check: Did we cross 50%?
-  if (previousTotalSteps >= FIFTY_PERCENT_THRESHOLD) {
-    // Already past threshold before this log
-    return false;
-  }
-
-  if (newTotalSteps < FIFTY_PERCENT_THRESHOLD) {
-    // Haven't reached threshold yet
-    return false;
-  }
-
-  console.log(`🎯 50% milestone crossed! Previous: ${previousTotalSteps}, New: ${newTotalSteps}, Threshold: ${FIFTY_PERCENT_THRESHOLD}`);
-
-  // We crossed the threshold! Try to claim the announcement
+  previousTotal: number,
+  newTotal: number
+): Promise<void> => {
   try {
-    // Atomic insert - will fail if already announced (UNIQUE constraint on milestone_type)
-    const result = await pool.query(`
-      INSERT INTO milestone_events
-        (milestone_type, threshold_value, total_steps_at_trigger, triggered_by_user_id, triggered_by_log_id)
-      VALUES
-        ('50_percent', $1, $2, $3, $4)
-      RETURNING id
-    `, [FIFTY_PERCENT_THRESHOLD, newTotalSteps, userId, logId]);
+    // 50% milestone threshold (50% of GLOBAL_GOAL)
+    const FIFTY_PERCENT_THRESHOLD = GLOBAL_GOAL * 0.5;
 
-    if (result.rows.length > 0) {
-      console.log(`✅ Claimed 50% milestone announcement (event id: ${result.rows[0].id})`);
-      // We won the race! Send the announcement
-      await send50PercentMilestoneAnnouncement(pool, userId, newTotalSteps);
-      return true;
+    // Check if we just crossed 50%
+    if (previousTotal < FIFTY_PERCENT_THRESHOLD && newTotal >= FIFTY_PERCENT_THRESHOLD) {
+      // Check if 50% milestone was already announced
+      const existingMilestone = await pool.query(
+        "SELECT * FROM milestone_events WHERE milestone_type = '50_percent'"
+      );
+
+      if (existingMilestone.rows.length === 0) {
+        // Record the milestone
+        await pool.query(`
+          INSERT INTO milestone_events (milestone_type, threshold_value, total_hours_at_trigger, triggered_by_user_id, triggered_by_log_id)
+          VALUES ('50_percent', $1, $2, $3, $4)
+        `, [FIFTY_PERCENT_THRESHOLD, newTotal, userId, logId]);
+
+        // Get user info for announcement
+        const userRes = await pool.query(`
+          SELECT u.username, u.avatar_emoji, t.name as team_name, t.icon as team_icon
+          FROM users u
+          JOIN teams t ON u.team_id = t.id
+          WHERE u.id = $1
+        `, [userId]);
+        const user = userRes.rows[0];
+
+        // Get grand prize info
+        const prizeRes = await pool.query("SELECT * FROM prizes WHERE prize_type = 'grand'");
+        const grandPrize = prizeRes.rows[0];
+
+        // Announce to Slack
+        const blocks = [
+          {
+            type: "header",
+            text: {
+              type: "plain_text",
+              text: "🎉🌟 HALFWAY THERE! 🌟🎉",
+              emoji: true
+            }
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*WE DID IT!* The team just crossed *50%* of our December sleep goal!\n\n${user?.avatar_emoji || '😴'} *${user?.username}* ${user?.team_icon || ''} pushed us over the finish line with their latest log!`
+            }
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `📊 *${newTotal.toFixed(1)} hours* of sleep logged so far!\n\nThat's *half the journey* to unlocking the grand prize! 🏆`
+            }
+          },
+          {
+            type: "context",
+            elements: [{
+              type: "mrkdwn",
+              text: `${grandPrize?.emoji || '👑'} Grand Prize: *${grandPrize?.title || 'Ultimate Sleep Setup'}*`
+            }]
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: "_Keep logging your sleep—we're on track for something amazing!_ 💪"
+            }
+          }
+        ];
+
+        await postToSlack(blocks);
+        console.log(`🎉 50% milestone announced! Triggered by ${user?.username}`);
+      }
     }
-  } catch (err: any) {
-    // Unique constraint violation = already announced (race condition handled gracefully)
-    if (err.code === '23505') {
-      console.log("ℹ️ 50% milestone already announced - skipping duplicate");
-      return false;
-    }
-    // Some other error - rethrow
-    console.error("❌ Error checking milestone:", err);
+  } catch (err) {
+    console.error("Error checking milestone:", err);
+  }
+};
+
+// Gather challenge stats for finale
+export const gatherChallengeStats = async (pool: Pool): Promise<any> => {
+  try {
+    const usersRes = await pool.query('SELECT * FROM users');
+    const teamsRes = await pool.query('SELECT * FROM teams');
+    const logsRes = await pool.query('SELECT * FROM sleep_logs');
+
+    const users = usersRes.rows;
+    const teams = teamsRes.rows;
+    const logs = logsRes.rows;
+
+    // Total hours
+    const totalHours = logs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+
+    // Individual stats
+    const userStats = users.map((u: any) => {
+      const userLogs = logs.filter((l: any) => l.user_id === u.id);
+      const hours = userLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+      const daysLogged = new Set(userLogs.map((l: any) => l.date_logged)).size;
+      const avgHours = daysLogged > 0 ? hours / daysLogged : 0;
+      return { ...u, totalHours: hours, daysLogged, avgHours };
+    }).sort((a, b) => b.totalHours - a.totalHours);
+
+    // Team stats
+    const teamStats = teams.map((t: any) => {
+      const memberIds = users.filter((u: any) => u.team_id === t.id).map((u: any) => u.id);
+      const teamLogs = logs.filter((l: any) => memberIds.includes(l.user_id));
+      const hours = teamLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+      return { ...t, totalHours: hours };
+    }).sort((a, b) => b.totalHours - a.totalHours);
+
+    return {
+      totalHours,
+      totalLogs: logs.length,
+      participantCount: users.length,
+      topSleepers: userStats.slice(0, 5),
+      mostConsistent: userStats.sort((a, b) => b.daysLogged - a.daysLogged).slice(0, 3),
+      winningTeam: teamStats[0],
+      teamStats,
+      grandPrizeQualified: users.filter((u: any) => u.grand_prize_entry).length
+    };
+  } catch (err) {
+    console.error("Error gathering challenge stats:", err);
     throw err;
   }
-
-  return false;
 };
 
-// ============================================================================
-// EPIC FINALE & COUNTDOWN POSTS
-// ============================================================================
-
-// Award definitions for the finale
-interface ChallengeAward {
-  id: string;
-  title: string;
-  emoji: string;
-  description: string;
-  winner?: { username: string; slackUserId?: string; avatarEmoji: string; value: number | string };
-}
-
-// Gather comprehensive stats for the finale
-export const gatherChallengeStats = async (pool: Pool): Promise<{
-  totalSteps: number;
-  totalLogs: number;
-  totalDays: number;
-  totalUsers: number;
-  activeUsers: number;
-  avgStepsPerPerson: number;
-  avgStepsPerDay: number;
-  totalMiles: number;
-  totalCalories: number;
-  globalGoal: number;
-  percentOfGoal: number;
-  teamStats: any[];
-  userStats: any[];
-  dailyWinners: any[];
-  awards: ChallengeAward[];
-  topDays: any[];
-  activityBreakdown: any[];
-  weeklyPrizeWinners: any[];
-  grandPrizeQualifiers: any[];
-}> => {
-  // 1. Global totals
-  const totalRes = await pool.query(`
-    SELECT
-      COALESCE(SUM(step_count), 0) as total_steps,
-      COUNT(*) as total_logs,
-      COUNT(DISTINCT date_logged) as total_days,
-      COUNT(DISTINCT user_id) as active_users
-    FROM activity_logs
-  `);
-  const { total_steps, total_logs, total_days, active_users } = totalRes.rows[0];
-  const totalSteps = parseInt(total_steps);
-  const totalLogs = parseInt(total_logs);
-  const totalDays = parseInt(total_days);
-  const activeUsers = parseInt(active_users);
-
-  // 2. User count
-  const userCountRes = await pool.query('SELECT COUNT(*) as count FROM users');
-  const totalUsers = parseInt(userCountRes.rows[0].count);
-
-  // 3. Per-user stats (for leaderboard & awards)
-  const userStatsRes = await pool.query(`
-    SELECT
-      u.id, u.username, u.avatar_emoji, u.slack_user_id, u.grand_prize_entry,
-      t.name as team_name, t.icon as team_icon,
-      COALESCE(SUM(al.step_count), 0) as total_steps,
-      COUNT(al.id) as log_count,
-      COUNT(DISTINCT al.date_logged) as active_days,
-      MAX(al.step_count) as best_single_log,
-      COALESCE(SUM(CASE WHEN al.activity_type LIKE 'Bonus%' THEN al.step_count ELSE 0 END), 0) as bonus_steps
-    FROM users u
-    JOIN teams t ON u.team_id = t.id
-    LEFT JOIN activity_logs al ON u.id = al.user_id
-    GROUP BY u.id, u.username, u.avatar_emoji, u.slack_user_id, u.grand_prize_entry, t.name, t.icon
-    ORDER BY total_steps DESC
-  `);
-  const userStats = userStatsRes.rows.map(r => ({
-    ...r,
-    total_steps: parseInt(r.total_steps),
-    log_count: parseInt(r.log_count),
-    active_days: parseInt(r.active_days),
-    best_single_log: parseInt(r.best_single_log) || 0,
-    bonus_steps: parseInt(r.bonus_steps)
-  }));
-
-  // 4. Team stats
-  const teamStatsRes = await pool.query(`
-    SELECT
-      t.id, t.name, t.icon,
-      COUNT(DISTINCT u.id) as member_count,
-      COALESCE(SUM(al.step_count), 0) as total_steps,
-      COALESCE(AVG(al.step_count), 0) as avg_per_log
-    FROM teams t
-    LEFT JOIN users u ON u.team_id = t.id
-    LEFT JOIN activity_logs al ON al.user_id = u.id
-    GROUP BY t.id, t.name, t.icon
-    ORDER BY total_steps DESC
-  `);
-  const teamStats = teamStatsRes.rows.map(r => ({
-    ...r,
-    total_steps: parseInt(r.total_steps),
-    member_count: parseInt(r.member_count),
-    avg_per_log: parseFloat(r.avg_per_log).toFixed(0)
-  }));
-
-  // 5. Daily winners
-  const dailyWinnersRes = await pool.query(`
-    SELECT dw.*, u.username, u.avatar_emoji, u.slack_user_id
-    FROM daily_winners dw
-    JOIN users u ON dw.user_id = u.id
-    ORDER BY dw.date DESC
-  `);
-  const dailyWinners = dailyWinnersRes.rows;
-
-  // 6. Count wins per user for "Most Crown Wins" award
-  const winCountRes = await pool.query(`
-    SELECT u.id, u.username, u.avatar_emoji, u.slack_user_id, COUNT(*) as win_count
-    FROM daily_winners dw
-    JOIN users u ON dw.user_id = u.id
-    GROUP BY u.id, u.username, u.avatar_emoji, u.slack_user_id
-    ORDER BY win_count DESC
-  `);
-  const winCounts = winCountRes.rows;
-
-  // 7. Best single day by a user
-  const bestDayRes = await pool.query(`
-    SELECT u.id, u.username, u.avatar_emoji, u.slack_user_id, al.date_logged,
-           SUM(al.step_count) as day_total
-    FROM activity_logs al
-    JOIN users u ON al.user_id = u.id
-    GROUP BY u.id, u.username, u.avatar_emoji, u.slack_user_id, al.date_logged
-    ORDER BY day_total DESC
-    LIMIT 5
-  `);
-  const topDays = bestDayRes.rows;
-
-  // 8. Activity type breakdown
-  const activityRes = await pool.query(`
-    SELECT
-      CASE
-        WHEN activity_type LIKE 'Bonus%' THEN activity_type
-        ELSE 'Walking/Running'
-      END as category,
-      SUM(step_count) as total_steps,
-      COUNT(*) as log_count
-    FROM activity_logs
-    GROUP BY category
-    ORDER BY total_steps DESC
-  `);
-  const activityBreakdown = activityRes.rows;
-
-  // 9. Weekly prize winners
-  const weeklyWinnersRes = await pool.query(`
-    SELECT p.week_number, p.title, p.emoji, u.username, u.avatar_emoji, u.slack_user_id
-    FROM prizes p
-    JOIN users u ON p.winner_user_id = u.id
-    WHERE p.prize_type = 'weekly' AND p.winner_user_id IS NOT NULL
-    ORDER BY p.week_number
-  `);
-  const weeklyPrizeWinners = weeklyWinnersRes.rows;
-
-  // 10. Grand prize qualifiers
-  const grandQualRes = await pool.query(`
-    SELECT u.id, u.username, u.avatar_emoji, u.slack_user_id, t.name as team_name, t.icon as team_icon
-    FROM users u
-    JOIN teams t ON u.team_id = t.id
-    WHERE u.grand_prize_entry = TRUE
-  `);
-  const grandPrizeQualifiers = grandQualRes.rows;
-
-  // 11. Calculate consecutive day streaks for each user
-  const streakRes = await pool.query(`
-    WITH user_dates AS (
-      SELECT DISTINCT user_id, date_logged::date as log_date
-      FROM activity_logs
-      ORDER BY user_id, log_date
-    ),
-    date_groups AS (
-      SELECT
-        user_id,
-        log_date,
-        log_date - (ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY log_date))::int AS streak_group
-      FROM user_dates
-    ),
-    streaks AS (
-      SELECT
-        user_id,
-        MIN(log_date) as streak_start,
-        MAX(log_date) as streak_end,
-        COUNT(*) as streak_length
-      FROM date_groups
-      GROUP BY user_id, streak_group
-    )
-    SELECT u.id, u.username, u.avatar_emoji, u.slack_user_id, MAX(s.streak_length) as max_streak
-    FROM users u
-    LEFT JOIN streaks s ON u.id = s.user_id
-    GROUP BY u.id, u.username, u.avatar_emoji, u.slack_user_id
-    ORDER BY max_streak DESC NULLS LAST
-  `);
-  const streaks = streakRes.rows;
-
-  // Build awards
-  const awards: ChallengeAward[] = [];
-
-  // Award: Most Steps Overall
-  if (userStats[0] && userStats[0].total_steps > 0) {
-    awards.push({
-      id: 'most_steps',
-      title: 'Step Champion',
-      emoji: '👑',
-      description: 'Most total steps in December',
-      winner: {
-        username: userStats[0].username,
-        slackUserId: userStats[0].slack_user_id,
-        avatarEmoji: userStats[0].avatar_emoji,
-        value: `${parseInt(userStats[0].total_steps).toLocaleString()} steps`
-      }
-    });
-  }
-
-  // Award: Most Daily Crowns
-  if (winCounts[0] && parseInt(winCounts[0].win_count) > 0) {
-    awards.push({
-      id: 'most_crowns',
-      title: 'Crown Collector',
-      emoji: '🏆',
-      description: 'Most daily top walker wins',
-      winner: {
-        username: winCounts[0].username,
-        slackUserId: winCounts[0].slack_user_id,
-        avatarEmoji: winCounts[0].avatar_emoji,
-        value: `${winCounts[0].win_count} wins`
-      }
-    });
-  }
-
-  // Award: Longest Streak
-  if (streaks[0] && parseInt(streaks[0].max_streak) > 1) {
-    awards.push({
-      id: 'longest_streak',
-      title: 'Consistency King/Queen',
-      emoji: '🔥',
-      description: 'Longest consecutive day streak',
-      winner: {
-        username: streaks[0].username,
-        slackUserId: streaks[0].slack_user_id,
-        avatarEmoji: streaks[0].avatar_emoji,
-        value: `${streaks[0].max_streak} days`
-      }
-    });
-  }
-
-  // Award: Best Single Day
-  if (topDays[0]) {
-    awards.push({
-      id: 'best_day',
-      title: 'Single Day Legend',
-      emoji: '⚡',
-      description: 'Highest steps in a single day',
-      winner: {
-        username: topDays[0].username,
-        slackUserId: topDays[0].slack_user_id,
-        avatarEmoji: topDays[0].avatar_emoji,
-        value: `${parseInt(topDays[0].day_total).toLocaleString()} steps on ${topDays[0].date_logged}`
-      }
-    });
-  }
-
-  // Award: Most Active (most log entries)
-  const mostActive = [...userStats].sort((a, b) => b.log_count - a.log_count)[0];
-  if (mostActive && mostActive.log_count > 0) {
-    awards.push({
-      id: 'most_active',
-      title: 'Engagement Champion',
-      emoji: '📊',
-      description: 'Most activity logs submitted',
-      winner: {
-        username: mostActive.username,
-        slackUserId: mostActive.slack_user_id,
-        avatarEmoji: mostActive.avatar_emoji,
-        value: `${mostActive.log_count} entries`
-      }
-    });
-  }
-
-  // Award: Bonus Activity King/Queen
-  const bonusKing = [...userStats].sort((a, b) => b.bonus_steps - a.bonus_steps)[0];
-  if (bonusKing && bonusKing.bonus_steps > 0) {
-    awards.push({
-      id: 'bonus_king',
-      title: 'Wellness Warrior',
-      emoji: '🧘',
-      description: 'Most bonus activity steps (lifting, yoga, sleep, etc.)',
-      winner: {
-        username: bonusKing.username,
-        slackUserId: bonusKing.slack_user_id,
-        avatarEmoji: bonusKing.avatar_emoji,
-        value: `${bonusKing.bonus_steps.toLocaleString()} bonus steps`
-      }
-    });
-  }
-
-  // Calculate derived stats
-  const avgStepsPerPerson = activeUsers > 0 ? Math.round(totalSteps / activeUsers) : 0;
-  const avgStepsPerDay = totalDays > 0 ? Math.round(totalSteps / totalDays) : 0;
-  const totalMiles = Math.round(totalSteps / 2222);
-  const totalCalories = Math.round(totalSteps * 0.05);
-  const globalGoal = GLOBAL_GOAL;
-  const percentOfGoal = Math.round((totalSteps / globalGoal) * 100);
-
-  return {
-    totalSteps,
-    totalLogs,
-    totalDays,
-    totalUsers,
-    activeUsers,
-    avgStepsPerPerson,
-    avgStepsPerDay,
-    totalMiles,
-    totalCalories,
-    globalGoal,
-    percentOfGoal,
-    teamStats,
-    userStats,
-    dailyWinners,
-    awards,
-    topDays,
-    activityBreakdown,
-    weeklyPrizeWinners,
-    grandPrizeQualifiers
-  };
-};
-
-// PREVIEW/COUNTDOWN POST - Send today to remind people to log their steps
-export const sendGrandPrizeCountdownPost = async (pool: Pool): Promise<{ success: boolean; message: string }> => {
+// Send countdown post before grand prize drawing
+export const sendGrandPrizeCountdownPost = async (pool: Pool): Promise<any> => {
   try {
     const stats = await gatherChallengeStats(pool);
-
-    // Get grand prize details
-    const prizeRes = await pool.query(`SELECT * FROM prizes WHERE prize_type = 'grand'`);
-    const grandPrize = prizeRes.rows[0];
-
-    // Top 3 for leaderboard preview
-    const top3 = stats.userStats.slice(0, 3);
-    const leaderboardText = top3.map((u, i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-      const mention = u.slack_user_id ? `<@${u.slack_user_id}>` : u.username;
-      return `${medal} ${mention} ${u.avatar_emoji} — *${u.total_steps.toLocaleString()}* steps`;
-    }).join('\n');
-
-    // Qualifiers list
-    const qualifiersList = stats.grandPrizeQualifiers.map(q => {
-      const mention = q.slack_user_id ? `<@${q.slack_user_id}>` : q.username;
-      return `${q.avatar_emoji} ${mention}`;
-    }).join(' • ');
 
     const blocks = [
       {
         type: "header",
         text: {
           type: "plain_text",
-          text: "⏰ FINAL HOURS: Grand Prize Drawing TOMORROW! ⏰",
+          text: "⏰ LAST CHANCE! Grand Prize Drawing Tomorrow!",
           emoji: true
         }
       },
@@ -2237,101 +1630,59 @@ export const sendGrandPrizeCountdownPost = async (pool: Pool): Promise<{ success
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `🎉 *The December Step Challenge is almost over!*\n\n📅 *Grand Prize Drawing:* Tomorrow at 2:00 PM MST\n⏳ *Deadline to Log Steps:* Tonight at 11:59 PM MST`
-        }
-      },
-      { type: "divider" },
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*🏆 THE GRAND PRIZE*\n${grandPrize?.emoji || '🏆'} *${grandPrize?.title || 'Grand Prize'}*\n\n_${grandPrize?.description || ''}_`
-        }
-      },
-      { type: "divider" },
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*🎟️ CURRENT QUALIFIERS (${stats.grandPrizeQualifiers.length} people)*\n\n${qualifiersList || '_No qualifiers yet_'}\n\n_Hit *${GRAND_PRIZE_THRESHOLD_STEPS.toLocaleString()}+ steps* to qualify!_`
-        }
-      },
-      { type: "divider" },
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*📊 CURRENT LEADERBOARD*\n\n${leaderboardText}`
+          text: `*The December Sleep Challenge ends TONIGHT!*\n\n📊 *Final Stats:*\n• 😴 *${stats.totalHours.toFixed(1)}* total hours logged\n• 🏆 *${stats.grandPrizeQualified}* people qualified for grand prize\n• 👥 *${stats.participantCount}* participants`
         }
       },
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*🌍 TEAM TOTALS SO FAR*\n• 🚶 *${stats.totalSteps.toLocaleString()}* total steps\n• 📏 *${stats.totalMiles.toLocaleString()}* miles walked\n• 🔥 *${stats.totalCalories.toLocaleString()}* calories burned\n• 📈 *${stats.percentOfGoal}%* of our ${stats.globalGoal.toLocaleString()} step goal`
+          text: `🎯 *Not qualified yet?* You still have time!\n\nLog your sleep before midnight to hit ${GRAND_PRIZE_THRESHOLD_HOURS.toFixed(1)} hours and enter the drawing!`
         }
       },
-      { type: "divider" },
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*⚠️ DON'T MISS OUT!*\n\nIf you have any steps from December that you haven't logged yet, *now is the time!*\n\n• Forgot about that walk on the 15th? Log it!\n• Have steps from yesterday? Add them!\n• Every step counts toward your total!\n\n<https://teamtrek-1024587728322.us-central1.run.app|📲 *Log Your Steps Now* →>`
+          text: "<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
         }
-      },
-      {
-        type: "context",
-        elements: [{
-          type: "mrkdwn",
-          text: `⏰ All entries must be logged by *11:59 PM MST tonight* to count toward the grand prize drawing. The winner will be announced *tomorrow at 2:00 PM MST*! 🎉`
-        }]
       }
     ];
 
     await postToSlack(blocks);
-
-    return { success: true, message: "Countdown post sent to Slack!" };
+    return { success: true, message: "Countdown post sent" };
   } catch (err: any) {
     console.error("Error sending countdown post:", err);
     return { success: false, message: err.message };
   }
 };
 
-// EPIC FINALE ANNOUNCEMENT - The big reveal with all stats and awards
-export const sendEpicFinaleAnnouncement = async (pool: Pool): Promise<{ success: boolean; message: string; winner?: any }> => {
+// Send epic finale announcement
+export const sendEpicFinaleAnnouncement = async (pool: Pool): Promise<any> => {
   try {
-    // First, draw the grand prize winner
-    const { winner, prize, qualifiedCount, alreadyDrawn, totalSteps: winnerSteps } = await drawGrandPrizeWinner(pool);
-
-    if (alreadyDrawn) {
-      return { success: false, message: "Grand prize has already been drawn" };
-    }
-
-    if (!winner || !prize) {
-      return { success: false, message: "No qualified participants for grand prize" };
-    }
-
-    // Gather all the stats
+    // First draw the grand prize winner
+    const { winner, prize, qualifiedCount, alreadyDrawn, totalHours } = await drawGrandPrizeWinner(pool);
     const stats = await gatherChallengeStats(pool);
 
+    if (alreadyDrawn) {
+      return { success: false, message: "Grand prize already drawn" };
+    }
+
+    if (!winner) {
+      return { success: false, message: "No qualified participants" };
+    }
+
+    // Build epic finale blocks
     const winnerMention = winner.slack_user_id
       ? `<@${winner.slack_user_id}>`
       : `*${winner.username}*`;
 
-    // Calculate fun stats
-    const pizzasBurned = Math.round(stats.totalCalories / 285); // avg slice = 285 cal
-    const phonesCharged = Math.round(stats.totalCalories / 10); // ~10 cal per phone charge
-
-    // Build the mega announcement blocks
-    const blocks: any[] = [];
-
-    // Part 1: The Cinematic Opening
-    blocks.push(
+    const blocks = [
       {
         type: "header",
         text: {
           type: "plain_text",
-          text: "🏆✨ THE DECEMBER STEP CHALLENGE: A CINEMATIC FINALE ✨🏆",
+          text: "🏆✨ DECEMBER SLEEP CHALLENGE FINALE ✨🏆",
           emoji: true
         }
       },
@@ -2339,288 +1690,73 @@ export const sendEpicFinaleAnnouncement = async (pool: Pool): Promise<{ success:
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `_*[Dramatic orchestral music plays]*_\n\nLadies and gentlemen, we didn't just walk. We *STRUTTED*. We *POWER-WALKED*. Some of us even _jazz-walked_ (you know who you are). 💃🕺`
+          text: `*What. A. Month.* 🌙\n\nTogether, we logged *${stats.totalHours.toFixed(1)} hours* of sleep!\nThat's *${Math.round(stats.totalHours / 24)} full days* of rest! 💤`
         }
       },
-      { type: "divider" }
-    );
-
-    // Part 2: By The Numbers (read in Morgan Freeman's voice)
-    blocks.push(
       {
-        type: "header",
+        type: "divider"
+      },
+      {
+        type: "section",
         text: {
-          type: "plain_text",
-          text: "📊 BY THE NUMBERS",
-          emoji: true
+          type: "mrkdwn",
+          text: `🥁 *AND THE GRAND PRIZE WINNER IS...* 🥁`
+        }
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `🎊 *CONGRATULATIONS ${winnerMention}!* ${winner.avatar_emoji} 🎊\n\nYou've won the *${prize.emoji} ${prize.title}*!\n\n_${prize.description}_`
         }
       },
       {
         type: "context",
         elements: [{
           type: "mrkdwn",
-          text: `_(please read in Morgan Freeman's voice)_`
+          text: `🎲 Randomly selected from ${qualifiedCount} qualified participants`
         }]
       },
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `👣 *${stats.totalSteps.toLocaleString()} TOTAL STEPS*\nThat's *${stats.percentOfGoal}%* of our goal. We didn't just hit it — we kept walking like we didn't know where the finish line was. Classic overachievers.\n\n` +
-            `🌍 *${stats.totalMiles.toLocaleString()} MILES WALKED*\nEquivalent to walking to... Canada? Denmark? THE MOON?! _(okay, not the moon, but spiritually? yes.)_\n\n` +
-            `🔥 *${stats.totalCalories.toLocaleString()} CALORIES BURNED*\nThat's approximately *${pizzasBurned} pizza slices* worth of calories. ...Not that anyone's tracking. 👀\n\n` +
-            `⚡ *${phonesCharged.toLocaleString()} PHONE CHARGES*\nEnough energy to power a Tesla for about 42 miles. Elon, call us.`
-        }
-      },
-      { type: "divider" }
-    );
-
-    // Part 3: THE GRAND PRIZE WINNER
-    blocks.push(
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `🎰 *AND NOW... THE MOMENT YOU'VE BEEN WAITING FOR...*\n\n_*[Drumroll that lasts uncomfortably long]*_\n_*[Confetti cannon sounds]*_\n_*[Someone in the back yells "JUST TELL US ALREADY"]*_`
-        }
-      }
-    );
-
-    const celebration = GRAND_PRIZE_CELEBRATIONS[Math.floor(Math.random() * GRAND_PRIZE_CELEBRATIONS.length)];
-    blocks.push(
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `🎊🎊🎊 *THE GRAND PRIZE WINNER IS...* 🎊🎊🎊\n\n` +
-            `🏆🏆🏆 *${winnerMention}* ${winner.avatar_emoji} 🏆🏆🏆\n\n` +
-            `> _${celebration}_\n\n` +
-            `You've won the *${prize.emoji} ${prize.title}*!\n${winner.team_icon} ${winner.team_name}\n\n` +
-            `_*[Crowd goes absolutely wild]*_\n_*[Tears of joy]*_\n_*[Someone faints but they're okay]*_`
-        }
+        type: "divider"
       },
       {
-        type: "context",
-        elements: [{
-          type: "mrkdwn",
-          text: `🎲 Randomly selected from *${qualifiedCount}* absolute legends who each crushed *${GRAND_PRIZE_THRESHOLD_STEPS.toLocaleString()}+* steps this month!`
-        }]
-      },
-      { type: "divider" }
-    );
-
-    // Part 4: Individual Awards (with humor)
-    blocks.push({
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: "🏅 THE AWARDS CEREMONY",
-        emoji: true
-      }
-    },
-    {
-      type: "context",
-      elements: [{
-        type: "mrkdwn",
-        text: `_(Imaginary trophies were harmed in the making of this post)_`
-      }]
-    });
-
-    // Find the step champion for special treatment
-    const stepChampion = stats.awards.find(a => a.title === 'Step Champion');
-    const crownCollector = stats.awards.find(a => a.title === 'Crown Collector');
-    const singleDayLegend = stats.awards.find(a => a.title === 'Single Day Legend');
-
-    // Special Andy-style commentary for dominant performers
-    for (const award of stats.awards) {
-      if (award.winner) {
-        const awardMention = award.winner.slackUserId
-          ? `<@${award.winner.slackUserId}>`
-          : award.winner.username;
-
-        let funnyComment = '';
-        if (award.title === 'Step Champion') {
-          const pctOfTotal = ((parseInt(award.winner.value.replace(/,/g, '')) / stats.totalSteps) * 100).toFixed(1);
-          funnyComment = `\n_That's ${pctOfTotal}% of ALL company steps. Basically carried this challenge on their back. And their legs. Mostly their legs._`;
-        } else if (award.title === 'Crown Collector') {
-          funnyComment = `\n_We considered renaming the app after them. Legal said no._`;
-        } else if (award.title === 'Single Day Legend') {
-          funnyComment = `\n_What were you DOING?! Training for the Olympics? Running from something? RUNNING TO something?! We need answers._`;
-        } else if (award.title === 'Streak Master') {
-          funnyComment = `\n_Didn't miss a SINGLE DAY. Calendar? GREEN. Dedication? UNMATCHED._`;
-        } else if (award.title === 'Most Consistent') {
-          funnyComment = `\n_The human equivalent of "you can count on me."_`;
-        }
-
-        blocks.push({
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `${award.emoji} *${award.title}*\n${awardMention} ${award.winner.avatarEmoji}\n_${award.description}_\n📊 *${award.winner.value}*${funnyComment}`
-          }
-        });
-      }
-    }
-
-    blocks.push({ type: "divider" });
-
-    // Part 5: Team Battle Results
-    if (stats.teamStats.length >= 2) {
-      const winningTeam = stats.teamStats[0];
-      const losingTeam = stats.teamStats[1];
-      const margin = parseInt(winningTeam.total_steps) - parseInt(losingTeam.total_steps);
-
-      blocks.push(
-        {
-          type: "header",
-          text: {
-            type: "plain_text",
-            text: "🥇 TEAM CHAMPION 🥇",
-            emoji: true
-          }
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*${winningTeam.icon} ${winningTeam.name}* takes the crown! 👑\n` +
-              `*${parseInt(winningTeam.total_steps).toLocaleString()} steps* | Avg: ${Math.round(parseInt(winningTeam.total_steps) / parseInt(winningTeam.member_count)).toLocaleString()}/person\n\n` +
-              `${losingTeam.icon} ${losingTeam.name} put up a valiant fight with ${parseInt(losingTeam.total_steps).toLocaleString()} steps, ` +
-              `but in the end, ${winningTeam.name.replace('The ', 'the ')} lifted themselves... right onto the podium. _*Chef's kiss*_ 🤌`
-          }
-        },
-        { type: "divider" }
-      );
-    }
-
-    // Part 6: Weekly Prize Winners Recap
-    if (stats.weeklyPrizeWinners.length > 0) {
-      blocks.push({
-        type: "header",
-        text: {
-          type: "plain_text",
-          text: "🎁 WEEKLY WINNERS HALL OF FAME",
-          emoji: true
-        }
-      });
-
-      const prizeComments = [
-        'Their muscles have never been happier',
-        'Hydration station: ACTIVATED',
-        'Looking good, feeling good',
-        'Recovery mode: ENGAGED'
-      ];
-
-      const weeklyText = stats.weeklyPrizeWinners.map((w, i) => {
-        const mention = w.slack_user_id ? `<@${w.slack_user_id}>` : w.username;
-        const comment = prizeComments[w.week_number - 1] || 'Living the dream';
-        return `• *Week ${w.week_number}:* ${mention} ${w.avatar_emoji} → ${w.emoji} ${w.title}\n  _${comment}_`;
-      }).join('\n');
-
-      blocks.push({
         type: "section",
         text: {
           type: "mrkdwn",
-          text: weeklyText
-        }
-      });
-
-      blocks.push({ type: "divider" });
-    }
-
-    // Part 7: Fun Facts Section
-    blocks.push({
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: "🧮 FUN FACTS YOUR BRAIN DIDN'T ASK FOR",
-        emoji: true
-      }
-    });
-
-    const everestClimbs = Math.round(stats.totalMiles / 5.5); // 5.5 miles to climb Everest
-    const earthCircles = (stats.totalMiles / 24901).toFixed(4); // Earth circumference
-
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `• We burned enough calories to power a Tesla for 42 miles. _Elon, call us._\n\n` +
-          `• Average steps per person: *${stats.avgStepsPerPerson.toLocaleString()}* — basically a marathon per week. _*pretends this isn't exhausting*_\n\n` +
-          `• We collectively took enough steps to climb Everest *${everestClimbs} times*. Sherpas are impressed.\n\n` +
-          `• We logged *${stats.totalLogs}* activity entries. That's *${Math.round(stats.totalLogs / stats.activeUsers)}* per person. We see those "walking 1:1" entries, and we _RESPECT IT_.`
-      }
-    });
-
-    blocks.push({ type: "divider" });
-
-    // Part 8: Final Leaderboard
-    blocks.push({
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: "🏆 FINAL LEADERBOARD",
-        emoji: true
-      }
-    });
-
-    const top5 = stats.userStats.slice(0, 5);
-    const leaderboardText = top5.map((u, i) => {
-      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
-      const mention = u.slack_user_id ? `<@${u.slack_user_id}>` : u.username;
-      return `${medals[i]} ${mention} ${u.avatar_emoji} — *${u.total_steps.toLocaleString()}* steps`;
-    }).join('\n');
-
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: leaderboardText
-      }
-    });
-
-    blocks.push({ type: "divider" });
-
-    // Part 9: Sincere Thank You (with a touch of humor)
-    blocks.push(
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*💝 A SINCERE THANK YOU*\n\nNo seriously, this was incredible.\n\nYou all logged steps before coffee. After dinner. During meetings _(we saw those "walking 1:1" entries, and we RESPECT IT)_.\n\nYou competed. You encouraged. You made WALKING competitive, which is honestly a very Recess thing to do.`
+          text: `*🏆 CHALLENGE CHAMPIONS*\n\n${stats.topSleepers.slice(0, 3).map((u: any, i: number) =>
+            `${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} *${u.username}*: ${u.totalHours.toFixed(1)} hours`
+          ).join('\n')}`
         }
       },
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `Whether you walked 5,000 steps or 400,000 steps, *YOU SHOWED UP.* And that's what this was really about.\n\nWell, that and the prizes. Let's be honest. 🎁`
+          text: `*⚔️ WINNING TEAM*\n${stats.winningTeam.icon} *${stats.winningTeam.name}* with ${stats.winningTeam.totalHours.toFixed(1)} total hours!`
         }
+      },
+      {
+        type: "divider"
       },
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*👟 UNTIL NEXT TIME...*\n\nKeep moving. Keep stepping. Keep being the weirdly competitive, health-obsessed, step-counting family we've become.\n\nSee you in January!\n_(Yes, there might be another challenge. No, we're not confirming anything. ...Okay fine, start stretching.)_\n\n🚶‍♂️🚶‍♀️🚶🚶‍♂️🚶‍♀️🚶 → 🏆\n\n_— The Recess Step Challenge Team_\n_(Powered by questionable step counting and pure vibes)_`
+          text: `*🙏 THANK YOU EVERYONE!*\n\nWhether you won a prize or not, you all invested in your sleep health this month—and that's the real win. 💪\n\n_See you at the next challenge!_ 🚀`
         }
       }
-    );
+    ];
 
-    // Post to Slack
     await postToSlack(blocks);
-
     return {
       success: true,
-      message: `Epic finale sent! Grand prize winner: ${winner.username}`,
-      winner: {
-        id: winner.id,
-        username: winner.username,
-        totalSteps: winnerSteps,
-        team: winner.team_name
-      }
+      message: "Epic finale posted!",
+      winner: winner.username,
+      stats
     };
   } catch (err: any) {
-    console.error("Error sending epic finale:", err);
+    console.error("Error sending finale:", err);
     return { success: false, message: err.message };
   }
 };

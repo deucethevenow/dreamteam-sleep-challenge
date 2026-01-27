@@ -82,7 +82,7 @@ const seedData = async () => {
   console.log("Seeding Teams...");
   for (const team of INITIAL_TEAMS) {
     await pool.query(
-      'INSERT INTO teams (id, name, color_hex, icon) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+      'INSERT INTO teams (id, name, color_hex, icon) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET name = $2, color_hex = $3, icon = $4',
       [team.id, team.name, team.color_hex, team.icon]
     );
   }
@@ -90,7 +90,7 @@ const seedData = async () => {
   console.log("Seeding Users...");
   for (const user of INITIAL_USERS) {
     await pool.query(
-      'INSERT INTO users (id, username, slack_username, slack_user_id, team_id, avatar_emoji, raffle_tickets, grand_prize_entry, banked_hours) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO UPDATE SET username = $2, slack_username = $3, slack_user_id = $4, team_id = $5',
+      'INSERT INTO users (id, username, slack_username, slack_user_id, team_id, avatar_emoji, raffle_tickets, grand_prize_entry, banked_hours) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO UPDATE SET username = $2, slack_username = $3, slack_user_id = $4, team_id = $5, avatar_emoji = $6, raffle_tickets = 0, grand_prize_entry = false, banked_hours = 0',
       [user.id, user.username, user.slack_username, user.slack_user_id, user.team_id, user.avatar_emoji, user.raffle_tickets, user.grand_prize_entry, user.banked_hours]
     );
   }
@@ -137,7 +137,7 @@ const seedData = async () => {
 
   for (const prize of prizes) {
     await pool.query(
-      'INSERT INTO prizes (week_number, prize_type, title, description, emoji) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
+      'INSERT INTO prizes (week_number, prize_type, title, description, emoji) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (week_number, prize_type) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description, emoji = EXCLUDED.emoji',
       [prize.week_number, prize.prize_type, prize.title, prize.description, prize.emoji]
     );
   }
