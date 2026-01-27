@@ -203,3 +203,200 @@ export const calculateSleepHours = (bedtime: string, wakeTime: string): number =
   const diffMinutes = wakeMinutes - bedMinutes;
   return Math.round((diffMinutes / 60) * 100) / 100; // Round to 2 decimal places
 };
+
+// --- WEEKLY AWARDS (Fun Recognition) ---
+export interface WeeklyAward {
+  id: string;
+  emoji: string;
+  title: string;
+  description: string;
+  criteria: string;
+}
+
+export const WEEKLY_AWARDS: WeeklyAward[] = [
+  { 
+    id: 'streak_master', 
+    emoji: '🔥', 
+    title: 'Streak Master', 
+    description: 'Most days logged this week',
+    criteria: 'Person who logged sleep the most days (consistency champion!)'
+  },
+  { 
+    id: 'hibernation_hero', 
+    emoji: '🛏️', 
+    title: 'Hibernation Hero', 
+    description: 'Longest single sleep session',
+    criteria: 'Most hours logged in a single night'
+  },
+  { 
+    id: 'quick_sleeper', 
+    emoji: '⚡', 
+    title: 'Quick Sleeper', 
+    description: 'Fastest to fall asleep',
+    criteria: 'Lowest sleep latency (from tracker data)'
+  },
+  { 
+    id: 'most_improved', 
+    emoji: '📈', 
+    title: 'Most Improved', 
+    description: 'Biggest week-over-week improvement',
+    criteria: 'Largest increase in average sleep hours vs previous week'
+  },
+  { 
+    id: 'consistency_royalty', 
+    emoji: '🎯', 
+    title: 'Consistency Crown', 
+    description: 'Most consistent bedtime',
+    criteria: 'Smallest variation in bedtime across the week'
+  },
+  { 
+    id: 'deep_diver', 
+    emoji: '💎', 
+    title: 'Deep Diver', 
+    description: 'Highest deep sleep percentage',
+    criteria: 'Best ratio of deep sleep to total sleep'
+  },
+  { 
+    id: 'dream_weaver', 
+    emoji: '🌈', 
+    title: 'Dream Weaver', 
+    description: 'Highest REM percentage',
+    criteria: 'Best ratio of REM sleep to total sleep'
+  },
+  { 
+    id: 'early_bird', 
+    emoji: '🌅', 
+    title: 'Early Bird', 
+    description: 'Earliest riser (with 7+ hours)',
+    criteria: 'Earliest average wake time while still hitting goal'
+  },
+  { 
+    id: 'night_owl_reformed', 
+    emoji: '🦉', 
+    title: 'Reformed Night Owl', 
+    description: 'Most improved bedtime',
+    criteria: 'Biggest shift to earlier bedtime vs previous week'
+  },
+  { 
+    id: 'weekly_mvp', 
+    emoji: '🏆', 
+    title: 'Weekly MVP', 
+    description: 'Best overall sleep score',
+    criteria: 'Highest average sleep score across all logged nights'
+  },
+];
+
+// --- WEEKLY PRIZES (~$100 value each) ---
+export interface WeeklyPrize {
+  week: number;
+  title: string;
+  description: string;
+  value: number;
+  emoji: string;
+  items: string[];
+}
+
+export const WEEKLY_PRIZES: WeeklyPrize[] = [
+  { 
+    week: 1, 
+    title: 'Hatch Restore 2', 
+    description: 'The ultimate sunrise alarm clock + sound machine',
+    value: 130,
+    emoji: '🌅',
+    items: [
+      'Hatch Restore 2 Smart Sleep Assistant',
+      'Sunrise alarm that wakes you naturally',
+      'White noise & sleep sounds library',
+      'Wind-down routines & meditations'
+    ]
+  },
+  { 
+    week: 2, 
+    title: 'Total Blackout Bundle', 
+    description: 'Block every photon for deeper sleep',
+    value: 120,
+    emoji: '🌑',
+    items: [
+      'Manta Sleep Mask PRO ($40)',
+      'SleepPhones Wireless ($100) - Bluetooth headband',
+      'This Works Deep Sleep Pillow Spray ($30)'
+    ]
+  },
+  { 
+    week: 3, 
+    title: 'Recovery & Relaxation Kit', 
+    description: 'Melt tension before bed',
+    value: 130,
+    emoji: '💆',
+    items: [
+      'Theragun Mini ($200) OR Hypervolt Go 2 ($130)',
+      'Premium aromatherapy diffuser',
+      'Lavender & eucalyptus essential oils set'
+    ]
+  },
+  { 
+    week: 4, 
+    title: 'Cozy Sleep Upgrade', 
+    description: 'Transform your bed into a cloud',
+    value: 120,
+    emoji: '☁️',
+    items: [
+      'Weighted blanket (15-20lb)',
+      'Silk pillowcase set',
+      'Premium magnesium supplement (3-month supply)',
+      'Sleepytime tea collection'
+    ]
+  },
+];
+
+// --- GRAND PRIZE ($300 value) ---
+export interface GrandPrizeOption {
+  id: string;
+  title: string;
+  description: string;
+  value: number;
+  emoji: string;
+  items: string[];
+}
+
+export const GRAND_PRIZE_OPTIONS: GrandPrizeOption[] = [
+  {
+    id: 'ultimate_sleep_setup',
+    title: 'Ultimate Sleep Setup',
+    description: 'Everything you need for perfect sleep',
+    value: 350,
+    emoji: '👑',
+    items: [
+      'Hatch Restore 2 ($130)',
+      'Manta Sleep Mask PRO ($40)',
+      'SleepPhones Wireless ($100)',
+      'Weighted blanket ($60)',
+      'Premium supplement stack: Magnesium Glycinate + L-Theanine + Apigenin ($50)'
+    ]
+  },
+  {
+    id: 'spa_experience',
+    title: 'Sleep Spa Experience',
+    description: 'The ultimate relaxation experience',
+    value: 300,
+    emoji: '🧖',
+    items: [
+      'Float tank session (2 hours)',
+      '90-minute deep tissue massage',
+      'Theragun Mini for home use ($200)',
+      'Aromatherapy sleep kit'
+    ]
+  },
+  {
+    id: 'sleepers_choice',
+    title: "Sleeper's Choice",
+    description: 'You pick exactly what you want',
+    value: 300,
+    emoji: '🎁',
+    items: [
+      '$300 to spend on ANY sleep products you want',
+      'Amazon, Best Buy, or direct from brands',
+      'Build your own perfect sleep setup!'
+    ]
+  },
+];

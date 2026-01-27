@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { User, Badge, SleepMetrics } from '../types';
 import { db } from '../services/dataService';
-import { getSleepTip } from '../services/geminiService';
+import { getSleepTip, analyzeSleepScreenshots, ExtractedSleepData } from '../services/geminiService';
 import { DAILY_GOAL, BONUS_ACTIVITIES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getSleepAura, calculateSleepHours } from '../constants';
-import { Moon, Star, Brain, Ticket, Medal, CalendarClock, CheckCircle2, Crown, Users, Clock, Zap, Coffee, BookOpen, MonitorOff, Thermometer, Bell, WifiOff, RefreshCw, Calendar, Bed, Sun, ChevronDown, ChevronUp, Activity } from 'lucide-react';
+import { Moon, Star, Brain, Ticket, Medal, CalendarClock, CheckCircle2, Crown, Users, Clock, Zap, Coffee, BookOpen, MonitorOff, Thermometer, Bell, WifiOff, RefreshCw, Calendar, Bed, Sun, ChevronDown, ChevronUp, Activity, Upload, Sparkles, AlertCircle, CheckCircle, Edit3, Loader2, Camera } from 'lucide-react';
 import PrizeTracker from './PrizeTracker';
 import MilestoneCelebration from './MilestoneCelebration';
 
@@ -29,8 +29,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [calculatedHours, setCalculatedHours] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState('');
+  
+  // AI Screenshot Analysis State
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [showReviewCard, setShowReviewCard] = useState(false);
+  const [extractedData, setExtractedData] = useState<ExtractedSleepData | null>(null);
+  const [scanWarnings, setScanWarnings] = useState<string[]>([]);
   
   // Advanced Sleep Metrics State
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
@@ -165,6 +172,77 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   }, [logType, bedtime, wakeTime]);
 
+  // Handle AI Screenshot Analysis
+  const handleScanScreenshots = async () => {
+    if (screenshotFiles.length === 0) return;
+    
+    setIsScanning(true);
+    setScanError(null);
+    setScanWarnings([]);
+    
+    try {
+      const result = await analyzeSleepScreenshots(screenshotFiles);
+      
+      if (result.success && result.data) {
+        setExtractedData(result.data);
+        setShowReviewCard(true);
+        
+        // Pre-fill form fields with extracted data
+        if (result.data.bedtime) {
+          setBedtime(result.data.bedtime);
+        }
+        if (result.data.wakeTime) {
+          setWakeTime(result.data.wakeTime);
+        }
+        if (result.data.sleepScore) {
+          setSleepScore(result.data.sleepScore.toString());
+        }
+        if (result.data.deepSleepMin) {
+          setDeepSleepMin(result.data.deepSleepMin.toString());
+        }
+        if (result.data.remSleepMin) {
+          setRemSleepMin(result.data.remSleepMin.toString());
+        }
+        if (result.data.lightSleepMin) {
+          setLightSleepMin(result.data.lightSleepMin.toString());
+        }
+        if (result.data.awakeMin) {
+          setAwakeMin(result.data.awakeMin.toString());
+        }
+        
+        // Show advanced metrics if we got stage data
+        if (result.data.deepSleepMin || result.data.remSleepMin || result.data.sleepScore) {
+          setShowAdvancedMetrics(true);
+        }
+        
+        if (result.warnings && result.warnings.length > 0) {
+          setScanWarnings(result.warnings);
+        }
+      } else {
+        setScanError(result.errors?.[0] || 'Failed to analyze screenshots');
+        setShowReviewCard(false);
+      }
+    } catch (error) {
+      setScanError('An unexpected error occurred. Please try again or enter data manually.');
+      console.error('Screenshot analysis error:', error);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Apply extracted data and close review
+  const handleConfirmExtractedData = () => {
+    setShowReviewCard(false);
+    // Data is already in the form fields, user can now submit
+  };
+
+  // Discard extracted data and reset
+  const handleDiscardExtractedData = () => {
+    setShowReviewCard(false);
+    setExtractedData(null);
+    setScanWarnings([]);
+  };
+
   const handleLogSubmit = async () => {
     if (isSubmitting || calculatedHours === 0) return;
     setIsSubmitting(true);
@@ -172,11 +250,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     try {
         let screenshotUrl: string | undefined;
         
-        if (screenshotFile) {
+        // Use first screenshot file if available
+        if (screenshotFiles.length > 0) {
           const reader = new FileReader();
           screenshotUrl = await new Promise<string>((resolve) => {
             reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(screenshotFile);
+            reader.readAsDataURL(screenshotFiles[0]);
           });
         }
 
@@ -204,7 +283,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         setBedtime('22:30');
         setWakeTime('06:30');
         setQualityRating(0);
-        setScreenshotFile(null);
+        setScreenshotFiles([]);
         setNotes('');
         setSleepScore('');
         setDeepSleepMin('');
@@ -214,6 +293,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         setShowAdvancedMetrics(false);
         setLogType('sleep');
         setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
+        
+        // Reset AI scan state
+        setShowReviewCard(false);
+        setExtractedData(null);
+        setScanError(null);
+        setScanWarnings([]);
 
         setShowLogModal(false);
         await fetchData(); 
@@ -939,21 +1024,182 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                        </div>
                      )}
 
-                     {/* Screenshot Upload */}
-                     <div>
-                         <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center">
-                             📸 Screenshot (Optional)
-                         </label>
+                     {/* AI Screenshot Analysis Section */}
+                     <div className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl border-2 border-dashed border-indigo-200 p-4">
+                         <div className="flex items-center justify-between mb-3">
+                           <label className="text-sm font-bold text-indigo-700 flex items-center">
+                             <Sparkles size={16} className="mr-2" />
+                             AI Screenshot Scanner
+                           </label>
+                           <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-medium">
+                             Beta
+                           </span>
+                         </div>
+                         
+                         <p className="text-xs text-gray-600 mb-3">
+                           Upload screenshots from Eight Sleep, Oura, Apple Watch, or other sleep trackers. Our AI will extract your sleep data automatically!
+                         </p>
+                         
                          <input
                            type="file"
                            accept="image/*"
-                           onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
-                           className="w-full border border-gray-200 rounded-xl p-2 text-sm text-gray-600"
+                           multiple
+                           onChange={(e) => {
+                             const files = Array.from(e.target.files || []);
+                             setScreenshotFiles(files);
+                             setScanError(null);
+                             setShowReviewCard(false);
+                             setExtractedData(null);
+                           }}
+                           className="w-full border border-indigo-200 rounded-lg p-2 text-sm text-gray-600 bg-white mb-3"
                          />
-                         {screenshotFile && (
-                           <p className="text-xs text-green-600 mt-1">✓ {screenshotFile.name}</p>
+                         
+                         {screenshotFiles.length > 0 && (
+                           <div className="mb-3">
+                             <p className="text-xs text-indigo-600 font-medium mb-1">
+                               {screenshotFiles.length} file{screenshotFiles.length > 1 ? 's' : ''} selected:
+                             </p>
+                             <div className="flex flex-wrap gap-1">
+                               {screenshotFiles.map((file, idx) => (
+                                 <span key={idx} className="text-[10px] bg-white px-2 py-1 rounded border border-indigo-100 text-gray-600">
+                                   {file.name.length > 20 ? file.name.slice(0, 17) + '...' : file.name}
+                                 </span>
+                               ))}
+                             </div>
+                           </div>
+                         )}
+                         
+                         {screenshotFiles.length > 0 && !showReviewCard && (
+                           <button
+                             type="button"
+                             onClick={handleScanScreenshots}
+                             disabled={isScanning}
+                             className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 text-white py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:from-violet-600 hover:to-indigo-700 transition-all disabled:opacity-60"
+                           >
+                             {isScanning ? (
+                               <>
+                                 <Loader2 size={16} className="animate-spin" />
+                                 Analyzing Screenshots...
+                               </>
+                             ) : (
+                               <>
+                                 <Camera size={16} />
+                                 Scan Screenshots
+                               </>
+                             )}
+                           </button>
+                         )}
+                         
+                         {scanError && (
+                           <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                             <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                             <p className="text-xs text-red-700">{scanError}</p>
+                           </div>
                          )}
                      </div>
+                     
+                     {/* AI Extracted Data Review Card */}
+                     {showReviewCard && extractedData && (
+                       <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 p-4">
+                         <div className="flex items-center justify-between mb-3">
+                           <h4 className="text-sm font-bold text-green-700 flex items-center">
+                             <CheckCircle size={16} className="mr-2" />
+                             AI Extracted Data
+                           </h4>
+                           {extractedData.detectedSource && extractedData.detectedSource !== 'unknown' && (
+                             <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium capitalize">
+                               {extractedData.detectedSource.replace('_', ' ')}
+                             </span>
+                           )}
+                         </div>
+                         
+                         {scanWarnings.length > 0 && (
+                           <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                             <p className="text-[10px] text-yellow-700 font-medium">⚠️ {scanWarnings.join(', ')}</p>
+                           </div>
+                         )}
+                         
+                         <div className="grid grid-cols-2 gap-2 mb-3">
+                           {extractedData.totalSleepHours && (
+                             <div className="bg-white rounded-lg p-2 border border-green-100">
+                               <p className="text-[10px] text-gray-500 uppercase font-bold">Total Sleep</p>
+                               <p className="text-lg font-bold text-gray-900">{extractedData.totalSleepHours.toFixed(1)}h</p>
+                             </div>
+                           )}
+                           {extractedData.sleepScore && (
+                             <div className="bg-white rounded-lg p-2 border border-green-100">
+                               <p className="text-[10px] text-gray-500 uppercase font-bold">Sleep Score</p>
+                               <p className="text-lg font-bold text-gray-900">{extractedData.sleepScore}</p>
+                             </div>
+                           )}
+                           {extractedData.bedtime && (
+                             <div className="bg-white rounded-lg p-2 border border-green-100">
+                               <p className="text-[10px] text-gray-500 uppercase font-bold">Bedtime</p>
+                               <p className="text-sm font-bold text-gray-900">{extractedData.bedtime}</p>
+                             </div>
+                           )}
+                           {extractedData.wakeTime && (
+                             <div className="bg-white rounded-lg p-2 border border-green-100">
+                               <p className="text-[10px] text-gray-500 uppercase font-bold">Wake Time</p>
+                               <p className="text-sm font-bold text-gray-900">{extractedData.wakeTime}</p>
+                             </div>
+                           )}
+                           {extractedData.deepSleepMin && (
+                             <div className="bg-white rounded-lg p-2 border border-purple-100">
+                               <p className="text-[10px] text-purple-600 uppercase font-bold">💜 Deep</p>
+                               <p className="text-sm font-bold text-gray-900">{extractedData.deepSleepMin} min</p>
+                             </div>
+                           )}
+                           {extractedData.remSleepMin && (
+                             <div className="bg-white rounded-lg p-2 border border-blue-100">
+                               <p className="text-[10px] text-blue-600 uppercase font-bold">💙 REM</p>
+                               <p className="text-sm font-bold text-gray-900">{extractedData.remSleepMin} min</p>
+                             </div>
+                           )}
+                           {extractedData.lightSleepMin && (
+                             <div className="bg-white rounded-lg p-2 border border-cyan-100">
+                               <p className="text-[10px] text-cyan-600 uppercase font-bold">🩵 Light</p>
+                               <p className="text-sm font-bold text-gray-900">{extractedData.lightSleepMin} min</p>
+                             </div>
+                           )}
+                           {extractedData.awakeMin !== undefined && extractedData.awakeMin !== null && (
+                             <div className="bg-white rounded-lg p-2 border border-orange-100">
+                               <p className="text-[10px] text-orange-600 uppercase font-bold">🧡 Awake</p>
+                               <p className="text-sm font-bold text-gray-900">{extractedData.awakeMin} min</p>
+                             </div>
+                           )}
+                         </div>
+                         
+                         {extractedData.confidence !== undefined && (
+                           <p className="text-[10px] text-gray-500 mb-3 text-center">
+                             AI Confidence: {Math.round(extractedData.confidence * 100)}%
+                           </p>
+                         )}
+                         
+                         <p className="text-xs text-gray-600 mb-3 text-center">
+                           <Edit3 size={12} className="inline mr-1" />
+                           Data has been filled in the form below. Review and edit if needed.
+                         </p>
+                         
+                         <div className="flex gap-2">
+                           <button
+                             type="button"
+                             onClick={handleConfirmExtractedData}
+                             className="flex-1 bg-green-500 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-1 hover:bg-green-600 transition-colors"
+                           >
+                             <CheckCircle size={14} />
+                             Looks Good
+                           </button>
+                           <button
+                             type="button"
+                             onClick={handleDiscardExtractedData}
+                             className="px-4 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium text-sm hover:bg-gray-300 transition-colors"
+                           >
+                             Clear
+                           </button>
+                         </div>
+                       </div>
+                     )}
 
                      {/* Notes */}
                      <div>

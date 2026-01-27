@@ -11,6 +11,203 @@ try {
   console.warn("Gemini API Key not found or invalid.");
 }
 
+// --- AI Screenshot Analysis Types ---
+export interface ExtractedSleepData {
+  // Core sleep duration
+  totalSleepHours?: number;      // Total sleep time in hours (decimal)
+  totalSleepMinutes?: number;    // Total sleep time in minutes (alternative)
+  
+  // Sleep score
+  sleepScore?: number;           // 0-100 composite score
+  
+  // Sleep timing
+  bedtime?: string;              // HH:MM format (24hr)
+  wakeTime?: string;             // HH:MM format (24hr)
+  
+  // Sleep stages (in minutes)
+  deepSleepMin?: number;
+  remSleepMin?: number;
+  lightSleepMin?: number;
+  awakeMin?: number;
+  
+  // Quality metrics
+  sleepEfficiency?: number;      // % (0-100)
+  sleepLatencyMin?: number;      // Time to fall asleep in minutes
+  
+  // Source detection
+  detectedSource?: 'eight_sleep' | 'oura' | 'apple_watch' | 'fitbit' | 'whoop' | 'garmin' | 'unknown';
+  
+  // Confidence score (0-1)
+  confidence?: number;
+  
+  // Raw text extracted (for debugging)
+  rawExtractedText?: string;
+}
+
+export interface ScreenshotAnalysisResult {
+  success: boolean;
+  data: ExtractedSleepData;
+  errors?: string[];
+  warnings?: string[];
+}
+
+// Convert File to base64 for Gemini Vision API
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data URL prefix to get just the base64
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Analyze sleep screenshots using Gemini Vision
+export const analyzeSleepScreenshots = async (files: File[]): Promise<ScreenshotAnalysisResult> => {
+  if (!files || files.length === 0) {
+    return {
+      success: false,
+      data: {},
+      errors: ['No files provided']
+    };
+  }
+
+  // Check if Gemini is available - try to initialize from window config if not
+  if (!ai) {
+    // Try to get API key from window config (client-side)
+    const windowConfig = (window as any).__GEMINI_API_KEY__;
+    if (windowConfig) {
+      ai = new GoogleGenerativeAI(windowConfig);
+    }
+  }
+
+  if (!ai) {
+    return {
+      success: false,
+      data: {},
+      errors: ['AI service not available. Please enter data manually.']
+    };
+  }
+
+  try {
+    // Use gemini-2.0-flash for vision tasks (faster and cheaper)
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+    
+    // Convert all files to base64 image parts
+    const imageParts = await Promise.all(
+      files.map(async (file) => {
+        const base64 = await fileToBase64(file);
+        return {
+          inlineData: {
+            data: base64,
+            mimeType: file.type || 'image/png'
+          }
+        };
+      })
+    );
+
+    const prompt = `Analyze these sleep tracker screenshots and extract all sleep data. 
+The images may be from Eight Sleep, Apple Watch, Oura Ring, Fitbit, Whoop, Garmin, or other sleep trackers.
+
+Extract the following data if visible (use null if not found):
+
+1. **Total Sleep Time**: Look for "Total sleep", "Time asleep", "Sleep duration" - convert to hours (decimal) and minutes
+2. **Sleep Score**: Look for any 0-100 score labeled "Sleep score", "Sleep rating", "Sleep quality score"
+3. **Bedtime**: When the person went to bed (HH:MM in 24hr format, e.g., "22:30")
+4. **Wake Time**: When the person woke up (HH:MM in 24hr format, e.g., "06:45")
+5. **Deep Sleep**: Minutes of deep/slow wave sleep (often shown in purple/dark blue)
+6. **REM Sleep**: Minutes of REM sleep (often shown in light blue/cyan)
+7. **Light Sleep**: Minutes of light sleep (often shown in light colors)
+8. **Awake Time**: Minutes awake during the night
+9. **Sleep Efficiency**: Percentage of time in bed actually sleeping
+10. **Sleep Latency**: Minutes to fall asleep (time from bed to asleep)
+
+Also identify which app/device the screenshot is from.
+
+IMPORTANT: Be thorough and look at ALL images provided. Combine data from multiple screenshots if they show different metrics.
+
+Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
+{
+  "totalSleepHours": <number or null>,
+  "totalSleepMinutes": <number or null>,
+  "sleepScore": <number 0-100 or null>,
+  "bedtime": "<HH:MM string or null>",
+  "wakeTime": "<HH:MM string or null>",
+  "deepSleepMin": <number or null>,
+  "remSleepMin": <number or null>,
+  "lightSleepMin": <number or null>,
+  "awakeMin": <number or null>,
+  "sleepEfficiency": <number 0-100 or null>,
+  "sleepLatencyMin": <number or null>,
+  "detectedSource": "<eight_sleep|oura|apple_watch|fitbit|whoop|garmin|unknown>",
+  "confidence": <number 0-1 representing extraction confidence>,
+  "rawExtractedText": "<brief summary of key text found>"
+}`;
+
+    const result = await model.generateContent([prompt, ...imageParts]);
+    const response = await result.response;
+    const text = response.text().trim();
+
+    // Parse the JSON response
+    // Clean up common issues - remove markdown code blocks if present
+    let cleanedText = text;
+    if (text.startsWith('```')) {
+      cleanedText = text.replace(/```json?\n?/g, '').replace(/```\n?$/g, '').trim();
+    }
+
+    try {
+      const extractedData: ExtractedSleepData = JSON.parse(cleanedText);
+      
+      // Validate and clean the data
+      const warnings: string[] = [];
+      
+      // If we have minutes but not hours, calculate hours
+      if (extractedData.totalSleepMinutes && !extractedData.totalSleepHours) {
+        extractedData.totalSleepHours = Math.round((extractedData.totalSleepMinutes / 60) * 100) / 100;
+      }
+      
+      // Validate sleep score is in range
+      if (extractedData.sleepScore !== undefined && extractedData.sleepScore !== null) {
+        if (extractedData.sleepScore < 0 || extractedData.sleepScore > 100) {
+          warnings.push('Sleep score was outside 0-100 range, may be inaccurate');
+        }
+      }
+      
+      // Validate times
+      if (extractedData.bedtime && !/^\d{2}:\d{2}$/.test(extractedData.bedtime)) {
+        warnings.push('Bedtime format may be incorrect');
+      }
+      if (extractedData.wakeTime && !/^\d{2}:\d{2}$/.test(extractedData.wakeTime)) {
+        warnings.push('Wake time format may be incorrect');
+      }
+
+      return {
+        success: true,
+        data: extractedData,
+        warnings: warnings.length > 0 ? warnings : undefined
+      };
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response:', text);
+      return {
+        success: false,
+        data: {},
+        errors: ['Failed to parse AI response. Please try again or enter data manually.'],
+      };
+    }
+  } catch (error) {
+    console.error("Gemini Vision API Error:", error);
+    return {
+      success: false,
+      data: {},
+      errors: [`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please enter data manually.`]
+    };
+  }
+};
+
 export const getSleepTip = async (currentHours: number): Promise<string> => {
   if (!ai) {
     // Fallback sleep tips

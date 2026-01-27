@@ -90,8 +90,8 @@ const seedData = async () => {
   console.log("Seeding Users...");
   for (const user of INITIAL_USERS) {
     await pool.query(
-      'INSERT INTO users (id, username, slack_username, slack_user_id, team_id, avatar_emoji, raffle_tickets, grand_prize_entry, banked_steps) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO UPDATE SET username = $2, slack_username = $3, slack_user_id = $4, team_id = $5',
-      [user.id, user.username, user.slack_username, user.slack_user_id, user.team_id, user.avatar_emoji, user.raffle_tickets, user.grand_prize_entry, user.banked_steps]
+      'INSERT INTO users (id, username, slack_username, slack_user_id, team_id, avatar_emoji, raffle_tickets, grand_prize_entry, banked_hours) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO UPDATE SET username = $2, slack_username = $3, slack_user_id = $4, team_id = $5',
+      [user.id, user.username, user.slack_username, user.slack_user_id, user.team_id, user.avatar_emoji, user.raffle_tickets, user.grand_prize_entry, user.banked_hours]
     );
   }
 
@@ -101,37 +101,37 @@ const seedData = async () => {
     {
       week_number: 1,
       prize_type: 'weekly',
-      title: 'Hume Body Pod',
-      description: 'Advanced smart body composition analyzer with 45+ health metrics including body fat %, muscle mass, bone density & heart health. Uses 8-frequency bioelectrical impedance sensors with DEXA-scan accuracy (±3%). Syncs with Apple, Fitbit & Garmin. Track your fitness journey with precision data in one app. HSA/FSA eligible!',
-      emoji: '⚡'
+      title: 'Hatch Restore 2',
+      description: 'The ultimate sunrise alarm clock + sound machine',
+      emoji: '🌅'
     },
     {
       week_number: 2,
       prize_type: 'weekly',
-      title: '3-Month Personal Training with HipTrain',
-      description: 'Live one-on-one video training with certified fitness professionals (2 sessions/week for 12 weeks = 24 sessions total!). Work with the same dedicated trainer in strength, HIIT, pilates, yoga, kickboxing or CrossFit. Train anywhere with flexible scheduling & 24hr rescheduling. Your personal coach adapts workouts to your equipment & goals. HSA/FSA eligible!',
-      emoji: '💪'
+      title: 'Total Blackout Bundle',
+      description: 'Manta Sleep Mask PRO + SleepPhones Wireless + This Works Pillow Spray',
+      emoji: '🌑'
     },
     {
       week_number: 3,
       prize_type: 'weekly',
-      title: 'Sleep & Meditation Ultimate Bundle',
-      description: 'Annual meditation app subscription (Headspace or Calm) with 1,000+ guided meditations, sleep stories & soundscapes for stress relief and better focus. PLUS award-winning NodPod weighted sleep mask - the "weighted blanket for your eyes" with gentle pressure therapy to calm your mind & soothe headaches. PLUS premium soft foam earplugs for perfect sleep!',
-      emoji: '🧘'
+      title: 'Recovery & Relaxation Kit',
+      description: 'Theragun Mini + aromatherapy diffuser + essential oils',
+      emoji: '💆'
     },
     {
       week_number: 4,
       prize_type: 'weekly',
-      title: 'Bob & Brad C2 Massage Gun',
-      description: 'Professional deep-tissue percussion massager designed by physical therapists. 5 speeds (2000-3200 RPM), 45+ lbs stall force, 10mm amplitude for deep muscle relief. Whisper-quiet (<60dB), ultra-lightweight (1.5 lbs), TSA-approved for travel. 5 interchangeable heads, 10-min auto-timer, Type-C fast charging. Perfect post-workout recovery!',
-      emoji: '🔫'
+      title: 'Cozy Sleep Upgrade',
+      description: 'Weighted blanket + silk pillowcase + magnesium supplements + sleep tea',
+      emoji: '☁️'
     },
     {
       week_number: null,
       prize_type: 'grand',
-      title: 'BowFlex SelectTech 552 Dumbbells OR 3 Premium Massages',
-      description: 'CHOICE OF: (A) BowFlex SelectTech 552 Adjustable Dumbbells - Replace 15 sets of weights! Adjust from 5-52.5 lbs with dial system. Space-saving home gym with ergonomic handles, reinforced metal plates & JRNY app with motion tracking for form corrections. Perfect for any fitness level! OR (B) Gift card for THREE 60-minute premium massage sessions at your favorite spa. Ultimate relaxation & recovery!',
-      emoji: '🏆'
+      title: 'Ultimate Sleep Setup OR Sleeper\'s Choice',
+      description: 'Complete sleep tech bundle (Hatch + Manta + SleepPhones + weighted blanket + supplements) OR $300 to spend on any sleep products you want!',
+      emoji: '👑'
     }
   ];
 
@@ -143,7 +143,7 @@ const seedData = async () => {
   }
 
   // REMOVED: No longer generating dummy logs to protect production data
-  console.log("Database Seeding Complete (users, teams, and prizes only - activity logs are never auto-generated).");
+  console.log("Database Seeding Complete (users, teams, and prizes only - sleep logs are never auto-generated).");
 };
 
 // Initialize Tables
@@ -169,7 +169,7 @@ const initDB = async () => {
         avatar_emoji TEXT,
         raffle_tickets INTEGER DEFAULT 0,
         grand_prize_entry BOOLEAN DEFAULT FALSE,
-        banked_steps INTEGER DEFAULT 0
+        banked_hours NUMERIC DEFAULT 0
       );
     `);
 
@@ -180,14 +180,28 @@ const initDB = async () => {
     await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS slack_user_id TEXT;
     `);
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS banked_hours NUMERIC DEFAULT 0;
+    `);
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS activity_logs (
+      CREATE TABLE IF NOT EXISTS sleep_logs (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
-        step_count INTEGER NOT NULL,
         date_logged TEXT NOT NULL,
-        activity_type TEXT NOT NULL
+        bedtime TEXT,
+        wake_time TEXT,
+        sleep_hours NUMERIC NOT NULL,
+        quality_rating INTEGER,
+        notes TEXT,
+        screenshot_url TEXT,
+        sleep_score INTEGER,
+        deep_sleep_min INTEGER,
+        rem_sleep_min INTEGER,
+        light_sleep_min INTEGER,
+        awake_min INTEGER,
+        sleep_latency_min INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
@@ -226,13 +240,13 @@ const initDB = async () => {
       console.log("Prize columns may already exist");
     }
 
-    // Create daily_winners table to track top walker each day
+    // Create daily_winners table to track top sleeper each day
     await pool.query(`
       CREATE TABLE IF NOT EXISTS daily_winners (
         id SERIAL PRIMARY KEY,
         date TEXT NOT NULL UNIQUE,
         user_id INTEGER REFERENCES users(id),
-        step_count INTEGER NOT NULL,
+        sleep_hours NUMERIC NOT NULL,
         announced BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -244,8 +258,8 @@ const initDB = async () => {
       CREATE TABLE IF NOT EXISTS milestone_events (
         id SERIAL PRIMARY KEY,
         milestone_type TEXT NOT NULL UNIQUE,
-        threshold_value INTEGER NOT NULL,
-        total_steps_at_trigger INTEGER NOT NULL,
+        threshold_value NUMERIC NOT NULL,
+        total_hours_at_trigger NUMERIC NOT NULL,
         triggered_by_user_id INTEGER REFERENCES users(id),
         triggered_by_log_id INTEGER,
         announced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -273,8 +287,8 @@ initDB();
 
 // --- Prize Auto Opt-In Helper ---
 // Constants for prize thresholds (matching frontend constants.ts)
-const RAFFLE_THRESHOLD_STEPS_SERVER = 29400; // 60% of weekly goal (49,000 * 0.6)
-const GRAND_PRIZE_THRESHOLD_STEPS_SERVER = 151900; // 70% of monthly goal (217,000 * 0.7)
+const RAFFLE_THRESHOLD_HOURS_SERVER = 42; // Weekly goal: 7 hours * 7 days = 49 hours, 60% = ~29.4, but let's use 42 (6 hours/night avg)
+const GRAND_PRIZE_THRESHOLD_HOURS_SERVER = 168; // Monthly goal: ~196 hours (7 hrs * 28 days), 70% = ~137, but we'll use 168 (6 hrs/night * 28 days)
 const CHALLENGE_START_SERVER = new Date('2025-12-01');
 
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)
@@ -312,16 +326,16 @@ const autoOptInUserForPrizes = async (pool: Pool, userId: number): Promise<void>
     const weekStart = getWeekStartDateServer(currentWeek);
     const weekEnd = getWeekEndDateServer(currentWeek);
 
-    // Calculate user's weekly steps for current week
+    // Calculate user's weekly sleep hours for current week
     const weeklyRes = await pool.query(`
-      SELECT COALESCE(SUM(step_count), 0) as weekly_total
-      FROM activity_logs
+      SELECT COALESCE(SUM(sleep_hours), 0) as weekly_total
+      FROM sleep_logs
       WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3
     `, [userId, weekStart, weekEnd]);
-    const weeklySteps = parseInt(weeklyRes.rows[0].weekly_total);
+    const weeklyHours = parseFloat(weeklyRes.rows[0].weekly_total);
 
     // Check if user qualifies for weekly prize
-    if (weeklySteps >= RAFFLE_THRESHOLD_STEPS_SERVER) {
+    if (weeklyHours >= RAFFLE_THRESHOLD_HOURS_SERVER) {
       // Get the prize for this week
       const prizeRes = await pool.query('SELECT id FROM prizes WHERE week_number = $1', [currentWeek]);
       if (prizeRes.rows.length > 0) {
@@ -343,8 +357,8 @@ const autoOptInUserForPrizes = async (pool: Pool, userId: number): Promise<void>
 
         // Send celebration message only if newly qualified! 🎉
         if (!wasAlreadyQualified) {
-          console.log(`🎉 NEW qualifier! User ${userId} for week ${currentWeek} prize (${weeklySteps} steps)`);
-          sendWeeklyPrizeQualificationCelebration(pool, userId, currentWeek, weeklySteps).catch(err => {
+          console.log(`🎉 NEW qualifier! User ${userId} for week ${currentWeek} prize (${weeklyHours} hours)`);
+          sendWeeklyPrizeQualificationCelebration(pool, userId, currentWeek, weeklyHours).catch(err => {
             console.error("Error sending weekly prize celebration:", err);
           });
         } else {
@@ -353,16 +367,16 @@ const autoOptInUserForPrizes = async (pool: Pool, userId: number): Promise<void>
       }
     }
 
-    // Calculate user's total December steps for grand prize
+    // Calculate user's total December sleep hours for grand prize
     const totalRes = await pool.query(`
-      SELECT COALESCE(SUM(step_count), 0) as total
-      FROM activity_logs
+      SELECT COALESCE(SUM(sleep_hours), 0) as total
+      FROM sleep_logs
       WHERE user_id = $1 AND date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
     `, [userId]);
-    const totalDecemberSteps = parseInt(totalRes.rows[0].total);
+    const totalDecemberHours = parseFloat(totalRes.rows[0].total);
 
     // Check if user qualifies for grand prize
-    if (totalDecemberSteps >= GRAND_PRIZE_THRESHOLD_STEPS_SERVER) {
+    if (totalDecemberHours >= GRAND_PRIZE_THRESHOLD_HOURS_SERVER) {
       // Check if user was already qualified (to avoid duplicate celebrations)
       const userRes = await pool.query(
         'SELECT grand_prize_entry FROM users WHERE id = $1',
@@ -378,8 +392,8 @@ const autoOptInUserForPrizes = async (pool: Pool, userId: number): Promise<void>
 
       // Send celebration message only if newly qualified! 🏆
       if (!wasAlreadyQualified) {
-        console.log(`🏆 NEW GRAND PRIZE qualifier! User ${userId} (${totalDecemberSteps} total steps)`);
-        sendGrandPrizeQualificationCelebration(pool, userId, totalDecemberSteps).catch(err => {
+        console.log(`🏆 NEW GRAND PRIZE qualifier! User ${userId} (${totalDecemberHours} total hours)`);
+        sendGrandPrizeQualificationCelebration(pool, userId, totalDecemberHours).catch(err => {
           console.error("Error sending grand prize celebration:", err);
         });
       }
@@ -432,26 +446,26 @@ app.post('/api/test-celebration', async (req, res) => {
   const { userId, type } = req.body; // type: 'weekly' or 'grand'
   try {
     if (type === 'grand') {
-      // Get user's total December steps
+      // Get user's total December sleep hours
       const totalRes = await pool.query(`
-        SELECT COALESCE(SUM(step_count), 0) as total
-        FROM activity_logs
+        SELECT COALESCE(SUM(sleep_hours), 0) as total
+        FROM sleep_logs
         WHERE user_id = $1 AND date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
       `, [userId]);
-      const totalSteps = parseInt(totalRes.rows[0].total);
-      await sendGrandPrizeQualificationCelebration(pool, userId, totalSteps);
+      const totalHours = parseFloat(totalRes.rows[0].total);
+      await sendGrandPrizeQualificationCelebration(pool, userId, totalHours);
       res.json({ success: true, message: `Grand prize celebration sent for user ${userId}!` });
     } else {
       const currentWeek = getCurrentWeekServer();
       const weekStart = getWeekStartDateServer(currentWeek);
       const weekEnd = getWeekEndDateServer(currentWeek);
       const weeklyRes = await pool.query(`
-        SELECT COALESCE(SUM(step_count), 0) as weekly_total
-        FROM activity_logs
+        SELECT COALESCE(SUM(sleep_hours), 0) as weekly_total
+        FROM sleep_logs
         WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3
       `, [userId, weekStart, weekEnd]);
-      const weeklySteps = parseInt(weeklyRes.rows[0].weekly_total);
-      await sendWeeklyPrizeQualificationCelebration(pool, userId, currentWeek, weeklySteps);
+      const weeklyHours = parseFloat(weeklyRes.rows[0].weekly_total);
+      await sendWeeklyPrizeQualificationCelebration(pool, userId, currentWeek, weeklyHours);
       res.json({ success: true, message: `Weekly celebration sent for user ${userId}!` });
     }
   } catch (err: any) {
@@ -460,7 +474,7 @@ app.post('/api/test-celebration', async (req, res) => {
   }
 });
 
-// Morning Recap: Yesterday's results & top walker badge (9 AM MT via Cloud Scheduler)
+// Morning Recap: Yesterday's results & top sleeper badge (9 AM MT via Cloud Scheduler)
 app.post('/api/morning-recap', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   try {
@@ -488,7 +502,7 @@ app.get('/api/debug/timezone', async (req, res) => {
   // Check logs for yesterday
   let logsCount = 0;
   if (pool) {
-    const logsRes = await pool.query('SELECT COUNT(*) as count FROM activity_logs WHERE date_logged = $1', [yesterdayMT]);
+    const logsRes = await pool.query('SELECT COUNT(*) as count FROM sleep_logs WHERE date_logged = $1', [yesterdayMT]);
     logsCount = parseInt(logsRes.rows[0]?.count || '0');
   }
 
@@ -530,8 +544,8 @@ app.get('/api/users/:userId/daily-wins', async (req, res) => {
   }
 });
 
-// Slack Slash Command: /logsteps
-app.post('/api/slack/logsteps', async (req, res) => {
+// Slack Slash Command: /logsleep
+app.post('/api/slack/logsleep', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
 
   try {
@@ -539,22 +553,22 @@ app.post('/api/slack/logsteps', async (req, res) => {
 
     console.log(`Slack command received from ${user_name} (${slackUserId}): ${text}`);
 
-    // Parse the text input (e.g., "5000" or "5000 walking")
+    // Parse the text input (e.g., "7.5" or "7.5 great sleep")
     const parts = text.trim().split(/\s+/);
-    const steps = parseInt(parts[0]);
-    const activityType = parts.slice(1).join(' ') || 'Walking';
+    const hours = parseFloat(parts[0]);
+    const notes = parts.slice(1).join(' ') || '';
 
-    if (isNaN(steps) || steps <= 0) {
+    if (isNaN(hours) || hours <= 0) {
       return res.json({
         response_type: "ephemeral",
-        text: "❌ Invalid steps! Usage: `/logsteps 5000` or `/logsteps 5000 Running`"
+        text: "❌ Invalid hours! Usage: `/logsleep 7.5` or `/logsleep 7.5 great sleep last night`"
       });
     }
 
-    if (steps > 50000) {
+    if (hours > 24) {
       return res.json({
         response_type: "ephemeral",
-        text: "🤔 That seems like a lot of steps! Please enter a reasonable number (max 50,000)."
+        text: "🤔 That seems like a lot of sleep! Please enter a reasonable number (max 24 hours)."
       });
     }
 
@@ -567,7 +581,7 @@ app.post('/api/slack/logsteps', async (req, res) => {
     if (userResult.rows.length === 0) {
       return res.json({
         response_type: "ephemeral",
-        text: `❌ Sorry, I couldn't find your account! Please make sure you're registered in the TeamTrek app first.\n\nYour Slack ID: ${slackUserId}`
+        text: `❌ Sorry, I couldn't find your account! Please make sure you're registered in the Sleep Challenge app first.\n\nYour Slack ID: ${slackUserId}`
       });
     }
 
@@ -575,24 +589,24 @@ app.post('/api/slack/logsteps', async (req, res) => {
     // Use Mountain Time for date logging (matches when users are active)
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
 
-    // Insert activity log
+    // Insert sleep log
     await pool.query(
-      'INSERT INTO activity_logs (user_id, step_count, activity_type, date_logged) VALUES ($1, $2, $3, $4)',
-      [user.id, steps, activityType, today]
+      'INSERT INTO sleep_logs (user_id, sleep_hours, notes, date_logged) VALUES ($1, $2, $3, $4)',
+      [user.id, hours, notes, today]
     );
 
-    // Update banked steps
+    // Update banked hours
     await pool.query(
-      'UPDATE users SET banked_steps = banked_steps + $1 WHERE id = $2',
-      [steps, user.id]
+      'UPDATE users SET banked_hours = banked_hours + $1 WHERE id = $2',
+      [hours, user.id]
     );
 
     // Get updated total
     const updatedUser = await pool.query(
-      'SELECT banked_steps FROM users WHERE id = $1',
+      'SELECT banked_hours FROM users WHERE id = $1',
       [user.id]
     );
-    const newTotal = updatedUser.rows[0].banked_steps;
+    const newTotal = parseFloat(updatedUser.rows[0].banked_hours);
 
     // Send Slack notification to channel
     const teamRes = await pool.query(
@@ -604,12 +618,12 @@ app.post('/api/slack/logsteps', async (req, res) => {
 
     // Calculate daily total for today
     const dailyRes = await pool.query(
-      'SELECT COALESCE(SUM(step_count), 0) as daily_total FROM activity_logs WHERE user_id = $1 AND date_logged = $2',
+      'SELECT COALESCE(SUM(sleep_hours), 0) as daily_total FROM sleep_logs WHERE user_id = $1 AND date_logged = $2',
       [user.id, today]
     );
-    const dailyTotal = parseInt(dailyRes.rows[0]?.daily_total || '0');
+    const dailyTotal = parseFloat(dailyRes.rows[0]?.daily_total || '0');
 
-    sendSlackLog(user.username, teamName, teamIcon, steps, activityType, dailyTotal, newTotal).catch(console.error);
+    sendSlackLog(user.username, teamName, teamIcon, hours, notes || 'Sleep logged', dailyTotal, newTotal).catch(console.error);
 
     // Auto opt-in for weekly prize and grand prize (async, don't block response)
     autoOptInUserForPrizes(pool, user.id).catch(err => {
@@ -619,16 +633,24 @@ app.post('/api/slack/logsteps', async (req, res) => {
     // Respond to user (only they see this)
     return res.json({
       response_type: "ephemeral",
-      text: `✅ Logged ${steps.toLocaleString()} steps (${activityType})!\n📊 Your total: ${newTotal.toLocaleString()} steps`
+      text: `✅ Logged ${hours} hours of sleep!\n📊 Your total: ${newTotal.toFixed(1)} hours`
     });
 
   } catch (err: any) {
-    console.error("Slack Log Steps Error:", err);
+    console.error("Slack Log Sleep Error:", err);
     return res.json({
       response_type: "ephemeral",
-      text: `❌ Error logging steps: ${err.message}`
+      text: `❌ Error logging sleep: ${err.message}`
     });
   }
+});
+
+// Keep old endpoint for backwards compatibility (redirects to new one)
+app.post('/api/slack/logsteps', async (req, res) => {
+  return res.json({
+    response_type: "ephemeral",
+    text: "❌ This command has been updated! Please use `/logsleep` instead.\n\nUsage: `/logsleep 7.5` or `/logsleep 7.5 great sleep last night`"
+  });
 });
 
 app.get('/api/teams', async (req, res) => {
@@ -649,6 +671,22 @@ app.get('/api/users', async (req, res) => {
     res.json(result.rows);
   } catch (err: any) {
     console.error("Get Users Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get user's sleep logs
+app.get('/api/users/:id/logs', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "Database not connected" });
+  const userId = parseInt(req.params.id);
+  try {
+    const result = await pool.query(
+      'SELECT * FROM sleep_logs WHERE user_id = $1 ORDER BY date_logged DESC, created_at DESC',
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err: any) {
+    console.error("Get User Logs Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -705,24 +743,24 @@ app.get('/api/milestones/50-percent', async (req, res) => {
       res.json({
         achieved: true,
         achievedAt: milestone.announced_at,
-        totalStepsAtTrigger: milestone.total_steps_at_trigger,
+        totalHoursAtTrigger: milestone.total_hours_at_trigger,
         triggeredBy: userRes.rows[0] || null,
         grandPrize: prizeRes.rows[0] || null
       });
     } else {
       // Not yet achieved - return current progress
       const progressRes = await pool.query(`
-        SELECT COALESCE(SUM(step_count), 0) as total
-        FROM activity_logs
+        SELECT COALESCE(SUM(sleep_hours), 0) as total
+        FROM sleep_logs
         WHERE date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
       `);
-      const totalSteps = parseInt(progressRes.rows[0].total);
-      const threshold = 1085000; // 50% of 2,170,000
-      const percentage = Math.min(100, (totalSteps / threshold) * 100);
+      const totalHours = parseFloat(progressRes.rows[0].total);
+      const threshold = 980; // 50% of ~1960 hours (10 people * 7 hrs * 28 days)
+      const percentage = Math.min(100, (totalHours / threshold) * 100);
 
       res.json({
         achieved: false,
-        currentSteps: totalSteps,
+        currentHours: totalHours,
         threshold: threshold,
         percentage: percentage
       });
@@ -878,7 +916,6 @@ app.post('/api/prizes/:week/draw', async (req, res) => {
 
     // Optionally announce to Slack (query param: ?announce=true)
     if (req.query.announce === 'true') {
-      const RAFFLE_THRESHOLD_STEPS = 29400; // From constants
       const winnerMention = winner.slack_user_id
         ? `<@${winner.slack_user_id}>`
         : `*${winner.username}*`;
@@ -910,7 +947,7 @@ app.post('/api/prizes/:week/draw', async (req, res) => {
           type: "context",
           elements: [{
             type: "mrkdwn",
-            text: `🎲 Randomly selected from *${qualifiedCount}* qualified participants who hit ${RAFFLE_THRESHOLD_STEPS.toLocaleString()} steps during Week ${weekNumber}. Great job everyone! 👏`
+            text: `🎲 Randomly selected from *${qualifiedCount}* qualified participants who hit ${RAFFLE_THRESHOLD_HOURS_SERVER} hours during Week ${weekNumber}. Great job everyone! 👏`
           }]
         }
       ];
@@ -973,13 +1010,13 @@ app.get('/api/prizes/grand/preview', async (req, res) => {
     const usersRes = await pool.query(`
       SELECT u.id, u.username, u.avatar_emoji, u.slack_user_id,
              t.name as team_name, t.icon as team_icon,
-             COALESCE(SUM(al.step_count), 0) as total_steps
+             COALESCE(SUM(sl.sleep_hours), 0) as total_hours
       FROM users u
       JOIN teams t ON u.team_id = t.id
-      LEFT JOIN activity_logs al ON u.id = al.user_id
+      LEFT JOIN sleep_logs sl ON u.id = sl.user_id
       WHERE u.grand_prize_entry = TRUE
       GROUP BY u.id, u.username, u.avatar_emoji, u.slack_user_id, t.name, t.icon
-      ORDER BY total_steps DESC
+      ORDER BY total_hours DESC
     `);
 
     res.json({
@@ -991,7 +1028,7 @@ app.get('/api/prizes/grand/preview', async (req, res) => {
         description: prize.description,
         emoji: prize.emoji
       },
-      threshold: 151900 // GRAND_PRIZE_THRESHOLD_STEPS
+      threshold: GRAND_PRIZE_THRESHOLD_HOURS_SERVER
     });
   } catch (err: any) {
     console.error("Grand Prize Preview Error:", err);
@@ -1014,7 +1051,7 @@ app.post('/api/prizes/grand/draw', async (req, res) => {
     }
 
     // Just draw without announcing
-    const { winner, prize, qualifiedCount, alreadyDrawn, totalSteps } = await drawGrandPrizeWinner(pool);
+    const { winner, prize, qualifiedCount, alreadyDrawn, totalHours } = await drawGrandPrizeWinner(pool);
 
     if (alreadyDrawn) {
       // Get existing winner details
@@ -1046,7 +1083,7 @@ app.post('/api/prizes/grand/draw', async (req, res) => {
         username: winner.username,
         avatar_emoji: winner.avatar_emoji,
         team: winner.team_name,
-        totalSteps
+        totalHours
       },
       prize: {
         title: prize.title,
@@ -1071,11 +1108,11 @@ app.post('/api/prizes/grand/announce', async (req, res) => {
     const prizeRes = await pool.query(`
       SELECT p.*, u.id as winner_id, u.username as winner_name, u.avatar_emoji as winner_emoji,
              u.slack_user_id, t.name as team_name, t.icon as team_icon,
-             COALESCE(SUM(al.step_count), 0) as total_steps
+             COALESCE(SUM(sl.sleep_hours), 0) as total_hours
       FROM prizes p
       LEFT JOIN users u ON p.winner_user_id = u.id
       LEFT JOIN teams t ON u.team_id = t.id
-      LEFT JOIN activity_logs al ON u.id = al.user_id
+      LEFT JOIN sleep_logs sl ON u.id = sl.user_id
       WHERE p.prize_type = 'grand'
       GROUP BY p.id, u.id, u.username, u.avatar_emoji, u.slack_user_id, t.name, t.icon
     `);
@@ -1095,7 +1132,6 @@ app.post('/api/prizes/grand/announce', async (req, res) => {
     const qualifiedCount = parseInt(countRes.rows[0].count);
 
     // Build and post the announcement
-    const GRAND_PRIZE_THRESHOLD_STEPS = 151900;
     const winnerMention = prize.slack_user_id
       ? `<@${prize.slack_user_id}>`
       : `*${prize.winner_name}*`;
@@ -1143,14 +1179,14 @@ app.post('/api/prizes/grand/announce', async (req, res) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `📊 *${prize.winner_name}'s December Stats:*\n• 🚶 *${parseInt(prize.total_steps).toLocaleString()} total steps*`
+          text: `📊 *${prize.winner_name}'s December Stats:*\n• 😴 *${parseFloat(prize.total_hours).toFixed(1)} total hours of sleep*`
         }
       },
       {
         type: "context",
         elements: [{
           type: "mrkdwn",
-          text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit 70% of their goal (${GRAND_PRIZE_THRESHOLD_STEPS.toLocaleString()}+ steps). What an incredible December! 🎉`
+          text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit their sleep goal (${GRAND_PRIZE_THRESHOLD_HOURS_SERVER}+ hours). What an incredible December! 🎉`
         }]
       },
       { type: "divider" },
@@ -1158,7 +1194,7 @@ app.post('/api/prizes/grand/announce', async (req, res) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*🙏 THANK YOU TO EVERYONE WHO PARTICIPATED!*\n\nYou all crushed it this month. Whether you won a prize or not, you invested in your health—and that's the real win. 💪\n\n_See you at the next challenge!_ 🚀`
+          text: `*🙏 THANK YOU TO EVERYONE WHO PARTICIPATED!*\n\nYou all crushed it this month. Whether you won a prize or not, you invested in your sleep health—and that's the real win. 💪\n\n_See you at the next challenge!_ 🚀`
         }
       }
     ];
@@ -1172,7 +1208,7 @@ app.post('/api/prizes/grand/announce', async (req, res) => {
         name: prize.winner_name,
         emoji: prize.winner_emoji,
         team: prize.team_name,
-        totalSteps: parseInt(prize.total_steps)
+        totalHours: parseFloat(prize.total_hours)
       },
       qualifiedCount
     });
@@ -1265,7 +1301,6 @@ app.post('/api/prizes/:week/announce', async (req, res) => {
     const qualifiedCount = parseInt(entriesRes.rows[0].count);
 
     // Build announcement blocks
-    const RAFFLE_THRESHOLD_STEPS = 29400;
     const winnerMention = prize.slack_user_id
       ? `<@${prize.slack_user_id}>`
       : `*${prize.winner_name}*`;
@@ -1297,7 +1332,7 @@ app.post('/api/prizes/:week/announce', async (req, res) => {
         type: "context",
         elements: [{
           type: "mrkdwn",
-          text: `🎲 Randomly selected from *${qualifiedCount}* qualified participants who hit ${RAFFLE_THRESHOLD_STEPS.toLocaleString()} steps during Week ${weekNumber}. Great job everyone! 👏`
+          text: `🎲 Randomly selected from *${qualifiedCount}* qualified participants who hit ${RAFFLE_THRESHOLD_HOURS_SERVER} hours during Week ${weekNumber}. Great job everyone! 👏`
         }]
       }
     ];
@@ -1321,7 +1356,7 @@ app.post('/api/prizes/:week/announce', async (req, res) => {
   }
 });
 
-// December Challenge Reset - Delete old logs, recalculate steps, reset prizes
+// December Challenge Reset - Delete old logs, recalculate hours, reset prizes
 app.post('/api/december-reset', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   try {
@@ -1329,23 +1364,23 @@ app.post('/api/december-reset', async (req, res) => {
     const results: string[] = [];
 
     // Step 1: Count logs before deletion
-    const beforeCount = await pool.query('SELECT COUNT(*) as count FROM activity_logs');
-    const oldLogsCount = await pool.query("SELECT COUNT(*) as count FROM activity_logs WHERE date_logged < '2025-12-01'");
+    const beforeCount = await pool.query('SELECT COUNT(*) as count FROM sleep_logs');
+    const oldLogsCount = await pool.query("SELECT COUNT(*) as count FROM sleep_logs WHERE date_logged < '2025-12-01'");
     results.push(`Logs before cleanup: ${beforeCount.rows[0].count}`);
     results.push(`Logs before Dec 1 (to delete): ${oldLogsCount.rows[0].count}`);
 
-    // Step 2: Delete old activity logs
-    await pool.query("DELETE FROM activity_logs WHERE date_logged < '2025-12-01'");
-    results.push("Deleted old activity logs");
+    // Step 2: Delete old sleep logs
+    await pool.query("DELETE FROM sleep_logs WHERE date_logged < '2025-12-01'");
+    results.push("Deleted old sleep logs");
 
-    // Step 3: Recalculate banked_steps for all users
+    // Step 3: Recalculate banked_hours for all users
     await pool.query(`
-      UPDATE users SET banked_steps = COALESCE(
-        (SELECT SUM(step_count) FROM activity_logs WHERE user_id = users.id),
+      UPDATE users SET banked_hours = COALESCE(
+        (SELECT SUM(sleep_hours) FROM sleep_logs WHERE user_id = users.id),
         0
       )
     `);
-    results.push("Recalculated banked_steps for all users");
+    results.push("Recalculated banked_hours for all users");
 
     // Step 4: Reset prize participation flags
     await pool.query('UPDATE users SET raffle_tickets = 0, grand_prize_entry = FALSE');
@@ -1360,10 +1395,10 @@ app.post('/api/december-reset', async (req, res) => {
     results.push("Reset prize winners");
 
     // Verification
-    const afterCount = await pool.query('SELECT COUNT(*) as count FROM activity_logs');
-    const userSteps = await pool.query('SELECT username, banked_steps FROM users ORDER BY username');
+    const afterCount = await pool.query('SELECT COUNT(*) as count FROM sleep_logs');
+    const userHours = await pool.query('SELECT username, banked_hours FROM users ORDER BY username');
     results.push(`Logs after cleanup: ${afterCount.rows[0].count}`);
-    results.push(`User steps: ${JSON.stringify(userSteps.rows)}`);
+    results.push(`User hours: ${JSON.stringify(userHours.rows)}`);
 
     console.log("December Challenge Reset Complete:", results);
     res.json({ success: true, message: "December Challenge Reset Complete", details: results });
@@ -1373,7 +1408,7 @@ app.post('/api/december-reset', async (req, res) => {
   }
 });
 
-// SAFE: Reseed only prizes (doesn't touch users, teams, or activity_logs)
+// SAFE: Reseed only prizes (doesn't touch users, teams, or sleep_logs)
 app.post('/api/reseed-prizes', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   try {
@@ -1382,42 +1417,42 @@ app.post('/api/reseed-prizes', async (req, res) => {
     // Clear only prize tables
     await pool.query('TRUNCATE prizes, prize_entries RESTART IDENTITY CASCADE');
 
-    // Reseed prizes with the updated data
+    // Reseed prizes with the updated sleep challenge data
     const prizes = [
       {
         week_number: 1,
         prize_type: 'weekly',
-        title: 'Hume Body Pod',
-        description: 'Advanced smart body composition analyzer with 45+ health metrics including body fat %, muscle mass, bone density & heart health. Uses 8-frequency bioelectrical impedance sensors with DEXA-scan accuracy (±3%). Syncs with Apple, Fitbit & Garmin. Track your fitness journey with precision data in one app. HSA/FSA eligible!',
-        emoji: '⚡'
+        title: 'Hatch Restore 2',
+        description: 'The ultimate sunrise alarm clock + sound machine',
+        emoji: '🌅'
       },
       {
         week_number: 2,
         prize_type: 'weekly',
-        title: '3-Month Personal Training with HipTrain',
-        description: 'Live one-on-one video training with certified fitness professionals (2 sessions/week for 12 weeks = 24 sessions total!). Work with the same dedicated trainer in strength, HIIT, pilates, yoga, kickboxing or CrossFit. Train anywhere with flexible scheduling & 24hr rescheduling. Your personal coach adapts workouts to your equipment & goals. HSA/FSA eligible!',
-        emoji: '💪'
+        title: 'Total Blackout Bundle',
+        description: 'Manta Sleep Mask PRO + SleepPhones Wireless + This Works Pillow Spray',
+        emoji: '🌑'
       },
       {
         week_number: 3,
         prize_type: 'weekly',
-        title: 'Sleep & Meditation Ultimate Bundle',
-        description: 'Annual meditation app subscription (Headspace or Calm) with 1,000+ guided meditations, sleep stories & soundscapes for stress relief and better focus. PLUS award-winning NodPod weighted sleep mask - the "weighted blanket for your eyes" with gentle pressure therapy to calm your mind & soothe headaches. PLUS premium soft foam earplugs for perfect sleep!',
-        emoji: '🧘'
+        title: 'Recovery & Relaxation Kit',
+        description: 'Theragun Mini + aromatherapy diffuser + essential oils',
+        emoji: '💆'
       },
       {
         week_number: 4,
         prize_type: 'weekly',
-        title: 'Bob & Brad C2 Massage Gun',
-        description: 'Professional deep-tissue percussion massager designed by physical therapists. 5 speeds (2000-3200 RPM), 45+ lbs stall force, 10mm amplitude for deep muscle relief. Whisper-quiet (<60dB), ultra-lightweight (1.5 lbs), TSA-approved for travel. 5 interchangeable heads, 10-min auto-timer, Type-C fast charging. Perfect post-workout recovery!',
-        emoji: '🔫'
+        title: 'Cozy Sleep Upgrade',
+        description: 'Weighted blanket + silk pillowcase + magnesium supplements + sleep tea',
+        emoji: '☁️'
       },
       {
         week_number: null,
         prize_type: 'grand',
-        title: 'BowFlex SelectTech 552 Dumbbells OR 3 Premium Massages',
-        description: 'CHOICE OF: (A) BowFlex SelectTech 552 Adjustable Dumbbells - Replace 15 sets of weights! Adjust from 5-52.5 lbs with dial system. Space-saving home gym with ergonomic handles, reinforced metal plates & JRNY app with motion tracking for form corrections. Perfect for any fitness level! OR (B) Gift card for THREE 60-minute premium massage sessions at your favorite spa. Ultimate relaxation & recovery!',
-        emoji: '🏆'
+        title: 'Ultimate Sleep Setup OR Sleeper\'s Choice',
+        description: 'Complete sleep tech bundle (Hatch + Manta + SleepPhones + weighted blanket + supplements) OR $300 to spend on any sleep products you want!',
+        emoji: '👑'
       }
     ];
 
@@ -1428,7 +1463,7 @@ app.post('/api/reseed-prizes', async (req, res) => {
       );
     }
 
-    res.json({ success: true, message: "Prizes reseeded successfully (users and activity logs untouched)" });
+    res.json({ success: true, message: "Prizes reseeded successfully (users and sleep logs untouched)" });
   } catch (err: any) {
     console.error("Reseed Prizes Error:", err);
     res.status(500).json({ error: err.message });
@@ -1438,7 +1473,7 @@ app.post('/api/reseed-prizes', async (req, res) => {
 app.get('/api/logs', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   try {
-    const result = await pool.query('SELECT * FROM activity_logs');
+    const result = await pool.query('SELECT * FROM sleep_logs ORDER BY date_logged DESC, created_at DESC');
     res.json(result.rows);
   } catch (err: any) {
     console.error("Get Logs Error:", err);
@@ -1448,54 +1483,78 @@ app.get('/api/logs', async (req, res) => {
 
 app.post('/api/logs', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
-  const { user_id, step_count, activity_type, date_logged } = req.body;
+  const { 
+    user_id, 
+    date_logged, 
+    bedtime, 
+    wake_time, 
+    sleep_hours, 
+    quality_rating, 
+    notes, 
+    screenshot_url,
+    metrics 
+  } = req.body;
+  
+  // Extract metrics if provided
+  const sleep_score = metrics?.sleep_score || null;
+  const deep_sleep_min = metrics?.deep_sleep_min || null;
+  const rem_sleep_min = metrics?.rem_sleep_min || null;
+  const light_sleep_min = metrics?.light_sleep_min || null;
+  const awake_min = metrics?.awake_min || null;
+  const sleep_latency_min = metrics?.sleep_latency_min || null;
+
   try {
-    // 1. Get total company steps BEFORE this log (for December challenge only)
+    // 1. Get total company sleep hours BEFORE this log (for December challenge only)
     const beforeRes = await pool.query(`
-      SELECT COALESCE(SUM(step_count), 0) as total
-      FROM activity_logs
+      SELECT COALESCE(SUM(sleep_hours), 0) as total
+      FROM sleep_logs
       WHERE date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
     `);
-    const previousTotalSteps = parseInt(beforeRes.rows[0].total);
+    const previousTotalHours = parseFloat(beforeRes.rows[0].total);
 
     // 2. Insert the log and get the ID back
     const logResult = await pool.query(
-      'INSERT INTO activity_logs (user_id, step_count, activity_type, date_logged) VALUES ($1, $2, $3, $4) RETURNING id',
-      [user_id, step_count, activity_type, date_logged]
+      `INSERT INTO sleep_logs (
+        user_id, date_logged, bedtime, wake_time, sleep_hours, 
+        quality_rating, notes, screenshot_url,
+        sleep_score, deep_sleep_min, rem_sleep_min, light_sleep_min, awake_min, sleep_latency_min
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+      [user_id, date_logged, bedtime, wake_time, sleep_hours, quality_rating, notes, screenshot_url,
+       sleep_score, deep_sleep_min, rem_sleep_min, light_sleep_min, awake_min, sleep_latency_min]
     );
     const logId = logResult.rows[0].id;
 
-    // 3. Update user's banked_steps
+    // 3. Update user's banked_hours
     await pool.query(
-      'UPDATE users SET banked_steps = banked_steps + $1 WHERE id = $2',
-      [step_count, user_id]
+      'UPDATE users SET banked_hours = banked_hours + $1 WHERE id = $2',
+      [sleep_hours, user_id]
     );
 
     // 4. Calculate new total (only if log is within December challenge)
     const isDecemberLog = date_logged >= '2025-12-01' && date_logged <= '2025-12-31';
-    const newTotalSteps = isDecemberLog ? previousTotalSteps + step_count : previousTotalSteps;
+    const newTotalHours = isDecemberLog ? previousTotalHours + parseFloat(sleep_hours) : previousTotalHours;
 
     // 5. Check for 50% milestone crossing (async, don't block response)
     if (isDecemberLog) {
-      checkAndAnnounceMilestone(pool, user_id, logId, previousTotalSteps, newTotalSteps).catch(err => {
+      checkAndAnnounceMilestone(pool, user_id, logId, previousTotalHours, newTotalHours).catch(err => {
         console.error("Milestone check error:", err);
       });
     }
 
     // 6. Async Slack Notification for the log itself
     const userRes = await pool.query(
-        'SELECT u.username, u.banked_steps, t.name as team_name, t.icon as team_icon FROM users u JOIN teams t ON u.team_id = t.id WHERE u.id = $1',
+        'SELECT u.username, u.banked_hours, t.name as team_name, t.icon as team_icon FROM users u JOIN teams t ON u.team_id = t.id WHERE u.id = $1',
         [user_id]
     );
     if (userRes.rows.length > 0) {
         const u = userRes.rows[0];
         // Calculate daily total for the logged date
         const dailyRes = await pool.query(
-          'SELECT COALESCE(SUM(step_count), 0) as daily_total FROM activity_logs WHERE user_id = $1 AND date_logged = $2',
+          'SELECT COALESCE(SUM(sleep_hours), 0) as daily_total FROM sleep_logs WHERE user_id = $1 AND date_logged = $2',
           [user_id, date_logged]
         );
-        const dailyTotal = parseInt(dailyRes.rows[0]?.daily_total || '0');
-        sendSlackLog(u.username, u.team_name, u.team_icon || '👥', step_count, activity_type, dailyTotal, u.banked_steps, date_logged).catch(console.error);
+        const dailyTotal = parseFloat(dailyRes.rows[0]?.daily_total || '0');
+        sendSlackLog(u.username, u.team_name, u.team_icon || '👥', sleep_hours, notes || 'Sleep logged', dailyTotal, parseFloat(u.banked_hours), date_logged).catch(console.error);
     }
 
     // 7. Auto opt-in for weekly prize and grand prize (async, don't block response)
@@ -1505,43 +1564,67 @@ app.post('/api/logs', async (req, res) => {
       });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, id: logId });
   } catch (err: any) {
     console.error("Post Log Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Update an existing activity log
+// Update an existing sleep log
 app.patch('/api/logs/:id', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   const logId = parseInt(req.params.id);
-  const { step_count, activity_type, date_logged } = req.body;
+  const { 
+    sleep_hours, 
+    bedtime, 
+    wake_time, 
+    quality_rating, 
+    notes, 
+    date_logged,
+    screenshot_url,
+    metrics
+  } = req.body;
 
   try {
-    // First, get the old log to calculate step difference
-    const oldLogRes = await pool.query('SELECT * FROM activity_logs WHERE id = $1', [logId]);
+    // First, get the old log to calculate hours difference
+    const oldLogRes = await pool.query('SELECT * FROM sleep_logs WHERE id = $1', [logId]);
     if (oldLogRes.rows.length === 0) {
       return res.status(404).json({ error: "Log entry not found" });
     }
     const oldLog = oldLogRes.rows[0];
-    const stepDifference = step_count - oldLog.step_count;
+    const hoursDifference = parseFloat(sleep_hours) - parseFloat(oldLog.sleep_hours);
+
+    // Extract metrics if provided
+    const sleep_score = metrics?.sleep_score ?? oldLog.sleep_score;
+    const deep_sleep_min = metrics?.deep_sleep_min ?? oldLog.deep_sleep_min;
+    const rem_sleep_min = metrics?.rem_sleep_min ?? oldLog.rem_sleep_min;
+    const light_sleep_min = metrics?.light_sleep_min ?? oldLog.light_sleep_min;
+    const awake_min = metrics?.awake_min ?? oldLog.awake_min;
+    const sleep_latency_min = metrics?.sleep_latency_min ?? oldLog.sleep_latency_min;
 
     // Update the log entry
     await pool.query(
-      'UPDATE activity_logs SET step_count = $1, activity_type = $2, date_logged = $3 WHERE id = $4',
-      [step_count, activity_type, date_logged, logId]
+      `UPDATE sleep_logs SET 
+        sleep_hours = $1, bedtime = $2, wake_time = $3, quality_rating = $4, 
+        notes = $5, date_logged = $6, screenshot_url = $7,
+        sleep_score = $8, deep_sleep_min = $9, rem_sleep_min = $10, 
+        light_sleep_min = $11, awake_min = $12, sleep_latency_min = $13
+      WHERE id = $14`,
+      [sleep_hours, bedtime, wake_time, quality_rating, notes, date_logged, screenshot_url,
+       sleep_score, deep_sleep_min, rem_sleep_min, light_sleep_min, awake_min, sleep_latency_min,
+       logId]
     );
 
-    // Update user's banked_steps with the difference
+    // Update user's banked_hours with the difference
     await pool.query(
-      'UPDATE users SET banked_steps = banked_steps + $1 WHERE id = $2',
-      [stepDifference, oldLog.user_id]
+      'UPDATE users SET banked_hours = banked_hours + $1 WHERE id = $2',
+      [hoursDifference, oldLog.user_id]
     );
 
     // Auto opt-in for prizes (async, in case update pushes user over threshold)
     const isDecemberLog = date_logged >= '2025-12-01' && date_logged <= '2025-12-31';
-    if (isDecemberLog && stepDifference > 0) {
+    if (isDecemberLog && hoursDifference > 0) {
       autoOptInUserForPrizes(pool, oldLog.user_id).catch(err => {
         console.error("Update log auto opt-in error:", err);
       });
@@ -1554,26 +1637,26 @@ app.patch('/api/logs/:id', async (req, res) => {
   }
 });
 
-// Delete an activity log
+// Delete a sleep log
 app.delete('/api/logs/:id', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   const logId = parseInt(req.params.id);
 
   try {
-    // First, get the log to subtract steps from user's banked_steps
-    const logRes = await pool.query('SELECT * FROM activity_logs WHERE id = $1', [logId]);
+    // First, get the log to subtract hours from user's banked_hours
+    const logRes = await pool.query('SELECT * FROM sleep_logs WHERE id = $1', [logId]);
     if (logRes.rows.length === 0) {
       return res.status(404).json({ error: "Log entry not found" });
     }
     const log = logRes.rows[0];
 
     // Delete the log entry
-    await pool.query('DELETE FROM activity_logs WHERE id = $1', [logId]);
+    await pool.query('DELETE FROM sleep_logs WHERE id = $1', [logId]);
 
-    // Subtract the steps from user's banked_steps
+    // Subtract the hours from user's banked_hours
     await pool.query(
-      'UPDATE users SET banked_steps = banked_steps - $1 WHERE id = $2',
-      [log.step_count, log.user_id]
+      'UPDATE users SET banked_hours = banked_hours - $1 WHERE id = $2',
+      [log.sleep_hours, log.user_id]
     );
 
     res.json({ success: true, message: `Log ${logId} deleted successfully` });
