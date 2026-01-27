@@ -6,24 +6,24 @@ import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinC
 
 // --- Constants & Seed Data ---
 const INITIAL_TEAMS = [
-  { id: 1, name: "The Cloud Walkers", color_hex: "from-cyan-400 to-blue-500", icon: "☁️" },
-  { id: 2, name: "The Mood Lifters", color_hex: "from-orange-300 to-pink-400", icon: "✨" },
+  { id: 1, name: "The Night Owls", color_hex: "from-indigo-400 to-purple-500", icon: "🦉" },
+  { id: 2, name: "The Dream Chasers", color_hex: "from-blue-400 to-cyan-400", icon: "✨" },
 ];
 
 const INITIAL_USERS = [
-  // Team 1 - The Cloud Walkers (5 members)
-  { id: 1, username: "Pam", slack_username: "pam", slack_user_id: "U05UC7E564F", team_id: 1, avatar_emoji: "🧘‍♀️", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 2, username: "Victoria", slack_username: "victoria newton", slack_user_id: "U06UWNKATU7", team_id: 1, avatar_emoji: "🏃‍♀️", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 3, username: "Jack", slack_username: "jackshannon", slack_user_id: "U06FBCJUU", team_id: 1, avatar_emoji: "🧗‍♂️", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 4, username: "Francisco", slack_username: "francisco cazes", slack_user_id: "U09MF1GDBV4", team_id: 1, avatar_emoji: "🚴‍♂️", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 9, username: "Andy Cooper", slack_username: "andy", slack_user_id: "U09JL7ML316", team_id: 1, avatar_emoji: "⚡", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
+  // Team 1 - The Night Owls (5 members)
+  { id: 1, username: "Pam", slack_username: "pam", slack_user_id: "U05UC7E564F", team_id: 1, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 2, username: "Victoria", slack_username: "victoria newton", slack_user_id: "U06UWNKATU7", team_id: 1, avatar_emoji: "🌙", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 3, username: "Jack", slack_username: "jackshannon", slack_user_id: "U06FBCJUU", team_id: 1, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 4, username: "Francisco", slack_username: "francisco cazes", slack_user_id: "U09MF1GDBV4", team_id: 1, avatar_emoji: "🛏️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 9, username: "Andy Cooper", slack_username: "andy", slack_user_id: "U09JL7ML316", team_id: 1, avatar_emoji: "⭐", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 
-  // Team 2 - The Mood Lifters (5 members)
-  { id: 5, username: "Claire", slack_username: "claire", slack_user_id: "U06P34GBSAC", team_id: 2, avatar_emoji: "🤸‍♀️", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 6, username: "Deuce", slack_username: "deuce", slack_user_id: "U06FDAS93", team_id: 2, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 7, username: "Courtney", slack_username: "courtney cook", slack_user_id: "U09NCCX1KMZ", team_id: 2, avatar_emoji: "🏄‍♀️", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 8, username: "Arb", slack_username: "arb", slack_user_id: "UCHB3H37B", team_id: 2, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
-  { id: 10, username: "Anderson Camargo", slack_username: "anderson", slack_user_id: "U023CK0NK63", team_id: 2, avatar_emoji: "🎯", raffle_tickets: 0, grand_prize_entry: false, banked_steps: 0 },
+  // Team 2 - The Dream Chasers (5 members)
+  { id: 5, username: "Claire", slack_username: "claire", slack_user_id: "U06P34GBSAC", team_id: 2, avatar_emoji: "✨", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 6, username: "Deuce", slack_username: "deuce", slack_user_id: "U06FDAS93", team_id: 2, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 7, username: "Courtney", slack_username: "courtney cook", slack_user_id: "U09NCCX1KMZ", team_id: 2, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 8, username: "Arb", slack_username: "arb", slack_user_id: "UCHB3H37B", team_id: 2, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 10, username: "Anderson Camargo", slack_username: "anderson", slack_user_id: "U023CK0NK63", team_id: 2, avatar_emoji: "🎯", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 ];
 
 // --- Database Setup ---
