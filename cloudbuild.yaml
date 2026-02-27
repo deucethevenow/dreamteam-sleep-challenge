@@ -1,0 +1,13 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'VITE_GEMINI_API_KEY=${_VITE_GEMINI_API_KEY}'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/dreamteam-sleep'
+      - '.'
+images:
+  - 'gcr.io/$PROJECT_ID/dreamteam-sleep'
+substitutions:
+  _VITE_GEMINI_API_KEY: ''
