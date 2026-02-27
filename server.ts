@@ -2,7 +2,7 @@ import express from 'express';
 import { Pool } from 'pg';
 import cors from 'cors';
 import path from 'path';
-import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinCount, previewMorningRecap, drawWeeklyPrizeWinner, drawGrandPrizeWinner, announceGrandPrizeWinner, postToSlack, checkAndAnnounceMilestone, sendWeeklyPrizeQualificationCelebration, sendGrandPrizeQualificationCelebration, gatherChallengeStats, sendGrandPrizeCountdownPost, sendEpicFinaleAnnouncement } from './services/slackService';
+import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinCount, previewMorningRecap, drawWeeklyPrizeWinner, drawGrandPrizeWinner, announceGrandPrizeWinner, postToSlack, checkAndAnnounceMilestone, sendWeeklyPrizeQualificationCelebration, sendGrandPrizeQualificationCelebration, gatherChallengeStats, sendGrandPrizeCountdownPost, sendEpicFinaleAnnouncement, sendAwardsCeremony } from './services/slackService';
 
 // --- Constants & Seed Data ---
 const INITIAL_TEAMS = [
@@ -1866,6 +1866,23 @@ app.get('/api/awards/:period', async (req, res) => {
     res.json({ period, startDate, endDate, awards });
   } catch (err: any) {
     console.error("Awards Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Trigger Awards Ceremony Slack Post
+app.post('/api/awards/:period/announce', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "Database not connected" });
+
+  try {
+    // First compute the awards (reuse GET logic by fetching from ourselves)
+    const awardsRes = await fetch(`http://localhost:${PORT}/api/awards/${req.params.period}`);
+    const awardsData = await awardsRes.json();
+
+    await sendAwardsCeremony(pool, req.params.period, awardsData.awards);
+    res.json({ success: true, awards: awardsData.awards });
+  } catch (err: any) {
+    console.error("Awards Announce Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

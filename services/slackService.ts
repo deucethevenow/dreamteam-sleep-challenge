@@ -1760,3 +1760,52 @@ export const sendEpicFinaleAnnouncement = async (pool: Pool): Promise<any> => {
     return { success: false, message: err.message };
   }
 };
+
+// Send Awards Ceremony to Slack
+export const sendAwardsCeremony = async (
+  pool: Pool,
+  period: string, // 'week1', 'week2', etc. or 'final'
+  awards: { id: string; emoji: string; title: string; winner: string; winnerEmoji: string; stat: string }[]
+): Promise<void> => {
+  if (!SLACK_BOT_TOKEN || !SLACK_CHANNEL_ID) return;
+
+  const isFinale = period === 'final';
+  const header = isFinale ? '🏆 THE AWARDS CEREMONY 🏆' : `📋 Week ${period.replace('week', '')} Awards`;
+
+  const blocks: any[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: header, emoji: true }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: isFinale
+          ? '*The results are in! Here are your DreamTeam Sleep Challenge champions:*'
+          : `*This week's standout sleepers:*`
+      }
+    },
+    { type: 'divider' },
+  ];
+
+  for (const award of awards) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `${award.emoji} *${award.title}*\n${award.winnerEmoji} *${award.winner}* — ${award.stat}`
+      }
+    });
+  }
+
+  blocks.push(
+    { type: 'divider' },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: isFinale ? '🌙 _Thanks for sleeping better together!_' : '💤 _Keep those sleep scores climbing!_' }]
+    }
+  );
+
+  await postToSlack(blocks);
+};
