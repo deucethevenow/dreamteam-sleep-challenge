@@ -384,6 +384,46 @@ export const calculateCompositeScore = (
   };
 };
 
+// Calculate bedtime/wake consistency from recent logs
+// Returns average variation in minutes from the user's own mean
+export const calculateConsistencyVariation = (
+  logs: { bedtime: string; wake_time: string; bonus_type?: string }[]
+): { bedtimeVariation: number; wakeVariation: number; avgVariation: number } => {
+  // Filter to actual sleep logs (not bonus), last 7 days max
+  const sleepLogs = logs
+    .filter(l => !l.bonus_type && l.bedtime && l.wake_time && l.bedtime !== '00:00')
+    .slice(0, 7);
+
+  if (sleepLogs.length < 2) {
+    return { bedtimeVariation: 0, wakeVariation: 0, avgVariation: 0 };
+  }
+
+  const toMinutes = (time: string): number => {
+    const [h, m] = time.split(':').map(Number);
+    // Normalize bedtimes: treat hours 0-12 as next-day (add 24h)
+    // so 23:00 = 1380, 00:30 = 1470, 01:00 = 1500
+    return h < 12 ? (h + 24) * 60 + m : h * 60 + m;
+  };
+
+  const bedMinutes = sleepLogs.map(l => toMinutes(l.bedtime));
+  const wakeMinutes = sleepLogs.map(l => {
+    const [h, m] = l.wake_time.split(':').map(Number);
+    return h * 60 + m;
+  });
+
+  const stdDev = (arr: number[]): number => {
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    const squareDiffs = arr.map(v => Math.pow(v - mean, 2));
+    return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / arr.length);
+  };
+
+  const bedtimeVariation = Math.round(stdDev(bedMinutes));
+  const wakeVariation = Math.round(stdDev(wakeMinutes));
+  const avgVariation = Math.round((bedtimeVariation + wakeVariation) / 2);
+
+  return { bedtimeVariation, wakeVariation, avgVariation };
+};
+
 // --- WEEKLY AWARDS (Fun Recognition) ---
 export interface WeeklyAward {
   id: string;
