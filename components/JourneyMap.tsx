@@ -159,6 +159,28 @@ const JourneyMap: React.FC = () => {
           </div>
         </div>
 
+        {/* Pace Indicator */}
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
+              progress.pace >= 100 ? 'bg-green-100 text-green-700' :
+              progress.pace >= 90 ? 'bg-yellow-100 text-yellow-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {progress.pace >= 100 ? '🚀' : progress.pace >= 90 ? '⏳' : '⚠️'}
+              {' '}{progress.pace}% pace
+            </span>
+            <span className="text-gray-400 text-xs">
+              Expected: {progress.expectedHours.toFixed(0)}h | Actual: {progress.totalHours.toFixed(0)}h
+            </span>
+          </div>
+          <div className="text-xs text-gray-500">
+            {progress.projectedFinish === 'Complete!' ? '🏆 Goal reached!' :
+             progress.projectedFinish.startsWith('Day') ? `📅 Projected: ${progress.projectedFinish}` :
+             `Need ${progress.dailyNeeded.toFixed(1)}h/person/day`}
+          </div>
+        </div>
+
         {/* Collective Impact Grid */}
         <div className="border-t border-gray-100 pt-6">
             <h3 className="text-xs font-bold uppercase text-gray-400 mb-3 flex items-center">
