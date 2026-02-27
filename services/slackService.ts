@@ -1640,7 +1640,7 @@ export const sendGrandPrizeCountdownPost = async (pool: Pool): Promise<any> => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+          text: "<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
         }
       }
     ];
@@ -1678,7 +1678,7 @@ export const sendEpicFinaleAnnouncement = async (pool: Pool): Promise<any> => {
         type: "header",
         text: {
           type: "plain_text",
-          text: "🏆✨ DECEMBER SLEEP CHALLENGE FINALE ✨🏆",
+          text: "🏆✨ DREAMTEAM SLEEP CHALLENGE FINALE ✨🏆",
           emoji: true
         }
       },
@@ -1804,4 +1804,205 @@ export const sendAwardsCeremony = async (
   );
 
   await postToSlack(blocks);
+};
+
+// ============================
+// Challenge Kickoff Message
+// ============================
+export const sendChallengeKickoff = async () => {
+  // Message 1: Welcome & Overview
+  const welcomeBlocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: '🌙 THE DREAMTEAM SLEEP CHALLENGE IS HERE!', emoji: true }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*March 1 - 31, 2026*\n\n'
+          + 'Welcome to the most research-backed sleep challenge ever! '
+          + 'For the next 31 days, we are going to sleep our way to better health, '
+          + 'sharper minds, and some seriously awesome prizes. 🏆'
+      }
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🔬 THE SCIENCE BEHIND OUR GOALS*\n\n'
+          + '• *7.5 hours/night* — 5 complete 90-min sleep cycles (AASM 2015, NSF 2015)\n'
+          + '• *Consistency matters* — regular bed/wake times improve sleep quality more than duration alone (Phillips et al. 2017)\n'
+          + '• *Sleep efficiency > 85%* — time in bed should be mostly sleep (Ohayon et al. 2004)\n'
+          + '• *Deep sleep* and *REM* are where the magic happens — memory, immunity, emotional regulation'
+      }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🎯 OUR COLLECTIVE GOAL*\n\n'
+          + '10 teammates × 7.5 hours × 31 days = *2,325 total hours of sleep*\n\n'
+          + 'Track our journey from _Recess HQ (Wide Awake)_ all the way to the _Hibernation Hall of Fame_ 🏛️'
+      }
+    },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: '🦉 _The Night Owls_ vs ✨ _The Dream Chasers_ — which team sleeps best?' }]
+    }
+  ];
+  await postToSlack(welcomeBlocks);
+
+  // Message 2: Scoring System + Awards + Badges
+  const scoringBlocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: '📊 HOW SCORING WORKS', emoji: true }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: 'Your *Composite Sleep Score* (0-100) is calculated from up to 5 dimensions:\n\n'
+          + '• *Duration (35%)* — 7.0-8.5h = full credit\n'
+          + '• *Consistency (25%)* — how regular your bed/wake times are\n'
+          + '• *Efficiency (15%)* — time asleep vs time in bed (wearable data)\n'
+          + '• *Sleep Stages (15%)* — deep sleep + REM quality (wearable data)\n'
+          + '• *Latency (10%)* — how fast you fall asleep (wearable data)\n\n'
+          + '_No wearable? No problem! Score adjusts to 60/40 duration/consistency._'
+      }
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🏅 10 WEEKLY AWARDS*\n\n'
+          + '🏆 *Sleep Champion* — most total hours\n'
+          + '👑 *Crown Collector* — most daily top-sleeper wins\n'
+          + '🎯 *Clockwork* — most consistent schedule\n'
+          + '⚡ *Power Sleeper* — longest single session\n'
+          + '💎 *Quality King/Queen* — highest avg sleep score\n'
+          + '📝 *Engagement Champion* — most logs submitted\n'
+          + '🌊 *Deep Diver* — highest deep sleep %\n'
+          + '🌈 *Dream Weaver* — highest REM %\n'
+          + '📈 *Rising Star* — most improved\n'
+          + '🥷 *Sleep Ninja* — best efficiency'
+      }
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🎖️ 6 BADGES TO EARN*\n\n'
+          + '🏆 *Sleep Champion* — 8+ hours 3 nights in a row\n'
+          + '🌅 *Early Bird* — in bed before 10pm\n'
+          + '👑 *Quality King* — log 5-star sleep quality\n'
+          + '🎉 *Weekend Warrior* — great sleep on Sat/Sun\n'
+          + '💎 *Deep Sleeper* — 9+ hours in one night\n'
+          + '🌙 *Nightly Champion* — most sleep in a single night'
+      }
+    }
+  ];
+  await postToSlack(scoringBlocks);
+
+  // Message 3: Prizes & Bonus Activities
+  const prizesBlocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: '🎁 PRIZES & BONUS POINTS', emoji: true }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*💰 WEEKLY RAFFLE PRIZES (~$100-130/week)*\n'
+          + '_Hit 60% of your weekly goal (31.5 hours) to earn a raffle ticket!_\n\n'
+          + '🌅 *Week 1:* Hatch Restore 2 — smart sunrise alarm + sound machine ($130)\n'
+          + '🌑 *Week 2:* Total Blackout Bundle — Manta mask + SleepPhones + pillow spray ($120)\n'
+          + '💆 *Week 3:* Recovery Kit — Theragun Mini + aromatherapy diffuser ($130)\n'
+          + '☁️ *Week 4:* Cozy Sleep Upgrade — weighted blanket + silk pillowcases + supplements ($120)'
+      }
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*👑 GRAND PRIZE — WINNER CHOOSES ONE:*\n'
+          + '_Hit 70% of your monthly goal (162.75 hours) to enter!_\n\n'
+          + '👑 *Ultimate Sleep Setup ($350)* — Hatch + Manta + SleepPhones + weighted blanket + supplement stack\n'
+          + '🧖 *Sleep Spa Experience ($300)* — float tank + deep tissue massage + Theragun Mini + aromatherapy\n'
+          + '🎁 *Sleeper\'s Choice ($300)* — spend it on ANY sleep products you want!'
+      }
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*⭐ BONUS ACTIVITIES (extra hours!)*\n\n'
+          + '☕ *No Caffeine After 2pm* — +1 hour\n'
+          + '📖 *Wind-down Routine* — +0.5 hours\n'
+          + '📵 *No Screens 1hr Before Bed* — +0.5 hours\n'
+          + '🌡️ *Room Temp 65-68°F* — +0.5 hours\n'
+          + '🧘 *Meditation Before Bed* — +0.5 hours\n'
+          + '💪 *Exercise Today* — +0.5 hours\n'
+          + '❤️ *Gratitude Journal* — +0.25 hours\n'
+          + '💧 *Proper Hydration* — +0.25 hours'
+      }
+    }
+  ];
+  await postToSlack(prizesBlocks);
+
+  // Message 4: How to Play
+  const howToPlayBlocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: '🚀 HOW TO PLAY', emoji: true }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*1️⃣ Log your sleep daily* on the dashboard\n'
+          + '• Enter bedtime, wake time, and quality rating\n'
+          + '• Have a wearable? Upload a screenshot for bonus metrics!\n'
+          + '• Check off bonus activities for extra hours\n\n'
+          + '*2️⃣ Watch the leaderboard* 📊\n'
+          + '• Daily morning recaps at 9 AM\n'
+          + '• Evening digests at 5 PM\n'
+          + '• Weekly awards every Monday\n\n'
+          + '*3️⃣ Hit your targets*\n'
+          + '• 60% weekly (31.5h) = raffle ticket 🎟️\n'
+          + '• 70% monthly (162.75h) = grand prize entry 👑\n'
+          + '• Team goal: 2,325 total hours = unlock the journey map!'
+      }
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*🗺️ THE JOURNEY*\n\n'
+          + '🏢 Recess HQ (Wide Awake) → 🏕️ Cozy Cabin (465h) → '
+          + '🧘 Zen Retreat (930h) → ☁️ Cloud Nine (1,395h) → '
+          + '🌌 Aurora Dreamland (1,860h) → 🏛️ Hibernation Hall of Fame (2,325h)'
+      }
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '💤 *Tonight, it begins. Sleep well, dream big, and let\'s do this together!*'
+      }
+    },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: '🌙 _DreamTeam Sleep Challenge — March 2026_ | Log your sleep at the dashboard' }]
+    }
+  ];
+  await postToSlack(howToPlayBlocks);
 };

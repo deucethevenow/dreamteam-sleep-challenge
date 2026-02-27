@@ -2,7 +2,7 @@ import express from 'express';
 import { Pool } from 'pg';
 import cors from 'cors';
 import path from 'path';
-import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinCount, previewMorningRecap, drawWeeklyPrizeWinner, drawGrandPrizeWinner, announceGrandPrizeWinner, postToSlack, checkAndAnnounceMilestone, sendWeeklyPrizeQualificationCelebration, sendGrandPrizeQualificationCelebration, gatherChallengeStats, sendGrandPrizeCountdownPost, sendEpicFinaleAnnouncement, sendAwardsCeremony } from './services/slackService';
+import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinCount, previewMorningRecap, drawWeeklyPrizeWinner, drawGrandPrizeWinner, announceGrandPrizeWinner, postToSlack, checkAndAnnounceMilestone, sendWeeklyPrizeQualificationCelebration, sendGrandPrizeQualificationCelebration, gatherChallengeStats, sendGrandPrizeCountdownPost, sendEpicFinaleAnnouncement, sendAwardsCeremony, sendChallengeKickoff } from './services/slackService';
 
 // --- Constants & Seed Data ---
 const INITIAL_TEAMS = [
@@ -1283,6 +1283,17 @@ app.post('/api/challenge/finale', async (req, res) => {
     res.json(result);
   } catch (err: any) {
     console.error("Finale Announcement Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Challenge Kickoff — sends the 4-part welcome message to Slack
+app.post('/api/challenge/kickoff', async (_req, res) => {
+  try {
+    await sendChallengeKickoff();
+    res.json({ success: true, message: 'Challenge kickoff messages sent to Slack' });
+  } catch (err: any) {
+    console.error("Challenge Kickoff Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
