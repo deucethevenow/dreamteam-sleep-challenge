@@ -91,7 +91,7 @@ const seedData = async () => {
   console.log("Seeding Users...");
   for (const user of INITIAL_USERS) {
     await pool.query(
-      'INSERT INTO users (id, username, slack_username, slack_user_id, team_id, avatar_emoji, raffle_tickets, grand_prize_entry, banked_hours) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO UPDATE SET username = $2, slack_username = $3, slack_user_id = $4, team_id = $5, avatar_emoji = $6, raffle_tickets = 0, grand_prize_entry = false, banked_hours = 0',
+      'INSERT INTO users (id, username, slack_username, slack_user_id, team_id, avatar_emoji, raffle_tickets, grand_prize_entry, banked_hours) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO UPDATE SET username = $2, slack_username = $3, slack_user_id = $4, team_id = $5, avatar_emoji = $6',
       [user.id, user.username, user.slack_username, user.slack_user_id, user.team_id, user.avatar_emoji, user.raffle_tickets, user.grand_prize_entry, user.banked_hours]
     );
   }
@@ -1520,12 +1520,12 @@ app.post('/api/logs', async (req, res) => {
   } = req.body;
   
   // Extract metrics if provided
-  const sleep_score = metrics?.sleep_score || null;
-  const deep_sleep_min = metrics?.deep_sleep_min || null;
-  const rem_sleep_min = metrics?.rem_sleep_min || null;
-  const light_sleep_min = metrics?.light_sleep_min || null;
-  const awake_min = metrics?.awake_min || null;
-  const sleep_latency_min = metrics?.sleep_latency_min || null;
+  const sleep_score = metrics?.sleep_score ?? null;
+  const deep_sleep_min = metrics?.deep_sleep_min ?? null;
+  const rem_sleep_min = metrics?.rem_sleep_min ?? null;
+  const light_sleep_min = metrics?.light_sleep_min ?? null;
+  const awake_min = metrics?.awake_min ?? null;
+  const sleep_latency_min = metrics?.sleep_latency_min ?? null;
 
   try {
     // 1. Get total company sleep hours BEFORE this log (for December challenge only)

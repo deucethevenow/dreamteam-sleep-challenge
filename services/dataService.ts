@@ -1,5 +1,5 @@
 import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics, BonusType } from '../types';
-import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
+import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, PARTICIPANT_COUNT, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
 
 // API BASE URL - In Replit/Production this is usually relative or configured
 const API_URL = '/api';
@@ -407,7 +407,7 @@ class DataService {
     // Daily needed = remaining hours / remaining days (per person)
     const remainingHours = GLOBAL_GOAL - totalHours;
     const dailyNeeded = daysRemaining > 0
-      ? Math.round((remainingHours / daysRemaining / 10) * 10) / 10  // per person per day
+      ? Math.round((remainingHours / daysRemaining / PARTICIPANT_COUNT) * 10) / 10  // per person per day
       : 0;
 
     // Projected finish day
@@ -533,11 +533,11 @@ class DataService {
     
     if (streak >= 3) earnedBadges.find((b: Badge) => b.id === 'streak_3')!.earned = true;
     
-    // Early sleeper - in bed before 10pm
+    // Early sleeper - in bed before 10pm (exclude 0-5am which are late nights, not early)
     if (userLogs.some(l => {
       if (!l.bedtime || l.bonus_type) return false;
-      const [h] = l.bedtime.split(':').map(Number);
-      return h < 22 || h >= 22 && l.bedtime <= '22:00';
+      const [h, m] = l.bedtime.split(':').map(Number);
+      return h >= 6 && (h < 22 || (h === 22 && m === 0));
     })) {
       earnedBadges.find((b: Badge) => b.id === 'early_sleeper')!.earned = true;
     }

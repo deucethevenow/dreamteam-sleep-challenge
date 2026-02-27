@@ -2,10 +2,13 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 let ai: GoogleGenerativeAI | null = null;
 
-// Initialize safely
+// Initialize safely — try Vite's import.meta.env first (proper client-side pattern),
+// then fall back to process.env.API_KEY (for production/server builds)
 try {
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    ai = new GoogleGenerativeAI(process.env.API_KEY);
+  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY
+    || (typeof process !== 'undefined' && process.env?.API_KEY);
+  if (apiKey) {
+    ai = new GoogleGenerativeAI(apiKey);
   }
 } catch (error) {
   console.warn("Gemini API Key not found or invalid.");
@@ -225,7 +228,7 @@ export const getSleepTip = async (currentHours: number): Promise<string> => {
   }
 
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-pro" });
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
       Generate a short, witty, and science-backed sleep tip (max 1 sentence) for someone
       who logged ${currentHours.toFixed(1)} hours of sleep today.
@@ -265,7 +268,7 @@ export const getDailyFunFact = async (todayHours: number, totalHours: number, le
   }
 
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-pro" });
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
       Generate ONE fun, witty, or surprising fact about today's team sleep challenge activity.
 
@@ -312,7 +315,7 @@ export const getMorningMotivation = async (winnerName: string, winnerHours: numb
   }
 
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-pro" });
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
       Generate a short, energizing morning motivation message for a team sleep challenge.
 

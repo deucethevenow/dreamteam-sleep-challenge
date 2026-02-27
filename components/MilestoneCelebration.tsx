@@ -7,7 +7,7 @@ interface MilestoneCelebrationProps {
     title: string;
     description: string;
   };
-  totalSteps: number;
+  totalHours: number;
   triggeredBy?: {
     username: string;
     avatar_emoji: string;
@@ -64,7 +64,7 @@ const ConfettiEffect: React.FC = () => {
 
 const MilestoneCelebration: React.FC<MilestoneCelebrationProps> = ({
   grandPrize,
-  totalSteps,
+  totalHours,
   triggeredBy,
   onClose
 }) => {
@@ -136,7 +136,7 @@ const MilestoneCelebration: React.FC<MilestoneCelebrationProps> = ({
           </div>
 
           <p className="text-lg text-gray-600 mb-2">
-            The team hit <span className="font-bold text-cyan-600">{totalSteps.toLocaleString()}</span> steps!
+            The team logged <span className="font-bold text-cyan-600">{totalHours.toLocaleString()}</span> hours of sleep!
           </p>
 
           {triggeredBy && (
@@ -155,20 +155,25 @@ const MilestoneCelebration: React.FC<MilestoneCelebrationProps> = ({
               <Sparkles className="text-yellow-500" size={18} />
             </div>
 
-            <p className="text-xs text-gray-500 italic mb-2">No, it's not a beach vacation... 🏖️</p>
+            <p className="text-xs text-gray-500 italic mb-2">Sweet dreams just got sweeter... 🌙</p>
 
-            <div className="text-5xl mb-2 drop-shadow-sm">💪 OR 🧘</div>
-            <h3 className="text-lg font-bold text-gray-900 mb-3">YOUR CHOICE:</h3>
+            <div className="text-5xl mb-2 drop-shadow-sm">👑 🧖 🎁</div>
+            <h3 className="text-lg font-bold text-gray-900 mb-3">WINNER CHOOSES ONE:</h3>
 
             <div className="space-y-3 text-left">
               <div className="bg-white/60 rounded-lg p-3">
-                <p className="font-bold text-gray-800">💪 BowFlex Dumbbells</p>
-                <p className="text-xs text-gray-600">15 sets of weights in ONE! 5-52.5 lbs. Basically a gym under your desk.</p>
+                <p className="font-bold text-gray-800">👑 Ultimate Sleep Setup ($350)</p>
+                <p className="text-xs text-gray-600">Hatch Restore 2 + Manta Sleep Mask + SleepPhones + Weighted Blanket + Supplement Stack</p>
               </div>
               <div className="text-gray-400 text-xs font-bold">— OR —</div>
               <div className="bg-white/60 rounded-lg p-3">
-                <p className="font-bold text-gray-800">🧘 3 Premium Massages</p>
-                <p className="text-xs text-gray-600">Three 60-min sessions. Your legs walked 2M+ steps - they deserve royalty treatment!</p>
+                <p className="font-bold text-gray-800">🧖 Sleep Spa Experience ($300)</p>
+                <p className="text-xs text-gray-600">Float tank session + deep tissue massage + Theragun Mini + aromatherapy kit</p>
+              </div>
+              <div className="text-gray-400 text-xs font-bold">— OR —</div>
+              <div className="bg-white/60 rounded-lg p-3">
+                <p className="font-bold text-gray-800">🎁 Sleeper's Choice ($300)</p>
+                <p className="text-xs text-gray-600">$300 to spend on ANY sleep products you want!</p>
               </div>
             </div>
 
@@ -188,7 +193,7 @@ const MilestoneCelebration: React.FC<MilestoneCelebrationProps> = ({
           </button>
 
           <p className="text-xs text-gray-400 mt-3">
-            Only 1,085,000 more steps to go!
+            Keep dreaming big — we're halfway there!
           </p>
         </div>
       </div>

@@ -91,7 +91,10 @@ EOF
 
 ```bash
 # Build the container image using Cloud Build
-gcloud builds submit --tag gcr.io/teamtrek-prod/teamtrek:latest
+# NOTE: --build-arg passes the Gemini API key at build time so Vite can embed it in the client JS bundle
+gcloud builds submit \
+  --tag gcr.io/teamtrek-prod/teamtrek:latest \
+  --build-arg VITE_GEMINI_API_KEY=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY)
 
 # Deploy to Cloud Run with Cloud SQL connection
 gcloud run deploy teamtrek \
@@ -156,8 +159,10 @@ gcloud sql connect teamtrek-db --user=postgres
 After making code changes:
 
 ```bash
-# Rebuild and redeploy
-gcloud builds submit --tag gcr.io/teamtrek-prod/teamtrek:latest
+# Rebuild and redeploy (include build arg for client-side Gemini API key)
+gcloud builds submit \
+  --tag gcr.io/teamtrek-prod/teamtrek:latest \
+  --build-arg VITE_GEMINI_API_KEY=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY)
 gcloud run deploy teamtrek --image gcr.io/teamtrek-prod/teamtrek:latest --region us-central1
 ```
 

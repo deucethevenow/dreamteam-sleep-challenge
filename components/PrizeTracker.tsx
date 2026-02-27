@@ -55,16 +55,16 @@ const PrizeTracker: React.FC = () => {
       const res = await fetch('/api/logs');
       const logs = await res.json();
 
-      // Filter logs to only include December 2025 challenge period (Dec 1-31, 2025)
-      const CHALLENGE_START = '2025-12-01';
-      const CHALLENGE_END = '2025-12-31';
-      const decemberLogs = logs.filter((log: any) =>
+      // Filter logs to challenge period (March 2026)
+      const CHALLENGE_START = '2026-03-01';
+      const CHALLENGE_END = '2026-03-31';
+      const challengeLogs = logs.filter((log: any) =>
         log.date_logged >= CHALLENGE_START && log.date_logged <= CHALLENGE_END
       );
 
-      const totalSteps = decemberLogs.reduce((sum: number, log: any) => sum + log.step_count, 0);
-      const GLOBAL_GOAL = 2170000; // 10 users * 7000 steps * 31 days
-      const percentage = Math.min(100, (totalSteps / GLOBAL_GOAL) * 100);
+      const totalHours = challengeLogs.reduce((sum: number, log: any) => sum + (parseFloat(log.sleep_hours) || 0), 0);
+      const GLOBAL_GOAL = 2325; // 10 users * 7.5 hours * 31 days
+      const percentage = Math.min(100, (totalHours / GLOBAL_GOAL) * 100);
       setGlobalProgress(percentage);
     } catch (err) {
       console.error("Error loading global progress:", err);
@@ -82,9 +82,9 @@ const PrizeTracker: React.FC = () => {
     }
   };
 
-  // Calculate current week (December 1-31, 2025 challenge)
+  // Calculate current week (March 1-31, 2026 challenge)
   const getCurrentWeek = () => {
-    const startDate = new Date('2025-12-01'); // December challenge start date
+    const startDate = new Date('2026-03-01'); // March challenge start date
     const today = new Date();
     const diffTime = Math.abs(today.getTime() - startDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -278,7 +278,7 @@ const PrizeTracker: React.FC = () => {
                         <div>
                           <p className="font-semibold text-gray-900">{entry.username}</p>
                           <p className="text-xs text-gray-500">
-                            {entry.team_id === 1 ? 'Cloud Walkers' : 'Mood Lifters'}
+                            {entry.team_id === 1 ? 'The Night Owls' : 'The Dream Chasers'}
                           </p>
                         </div>
                       </div>

@@ -281,11 +281,25 @@ export const scoreDuration = (hours: number): number => {
 };
 
 // Calculate consistency sub-score (0-100) from bedtime variation in minutes
+// Uses linear interpolation within ranges to avoid cliff drops
 export const scoreConsistency = (variationMinutes: number): number => {
   if (isNaN(variationMinutes) || variationMinutes < 0) return 0;
   if (variationMinutes <= CONSISTENCY_RANGES.EXCELLENT_MIN) return 100;
-  if (variationMinutes <= CONSISTENCY_RANGES.GOOD_MIN) return 70;
-  if (variationMinutes <= CONSISTENCY_RANGES.FAIR_MIN) return 40;
+  if (variationMinutes <= CONSISTENCY_RANGES.GOOD_MIN) {
+    // Linear interpolation: 100 at 30min → 70 at 60min
+    const t = (variationMinutes - CONSISTENCY_RANGES.EXCELLENT_MIN) / (CONSISTENCY_RANGES.GOOD_MIN - CONSISTENCY_RANGES.EXCELLENT_MIN);
+    return Math.round(100 - t * 30);
+  }
+  if (variationMinutes <= CONSISTENCY_RANGES.FAIR_MIN) {
+    // Linear interpolation: 70 at 60min → 40 at 90min
+    const t = (variationMinutes - CONSISTENCY_RANGES.GOOD_MIN) / (CONSISTENCY_RANGES.FAIR_MIN - CONSISTENCY_RANGES.GOOD_MIN);
+    return Math.round(70 - t * 30);
+  }
+  // Gradual tail-off: 40 at 90min → 0 at 150min
+  if (variationMinutes <= 150) {
+    const t = (variationMinutes - CONSISTENCY_RANGES.FAIR_MIN) / (150 - CONSISTENCY_RANGES.FAIR_MIN);
+    return Math.round(40 - t * 40);
+  }
   return 0;
 };
 
@@ -404,7 +418,9 @@ export const calculateConsistencyVariation = (
     .slice(0, 7);
 
   if (sleepLogs.length < 2) {
-    return { bedtimeVariation: 0, wakeVariation: 0, avgVariation: 0 };
+    // With only 1 log, we can't measure consistency. Return a moderate default
+    // (45 min variation) so users aren't rewarded with perfect consistency for a single log.
+    return { bedtimeVariation: 45, wakeVariation: 45, avgVariation: 45 };
   }
 
   const toMinutes = (time: string): number => {
