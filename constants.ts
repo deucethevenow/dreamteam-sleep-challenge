@@ -203,6 +203,60 @@ export const calculateSleepHours = (bedtime: string, wakeTime: string): number =
   return Math.round((diffMinutes / 60) * 100) / 100; // Round to 2 decimal places
 };
 
+// =============================================================================
+// COMPOSITE SLEEP SCORE — Evidence-Based Benchmarks
+// Sources: AASM 2015, NSF 2015, Phillips et al. 2017, Ohayon et al. 2004
+// =============================================================================
+
+export const SCORE_WEIGHTS = {
+  DURATION: 0.35,
+  CONSISTENCY: 0.25,
+  EFFICIENCY: 0.15,
+  SLEEP_STAGES: 0.15,
+  LATENCY: 0.10,
+};
+
+// Duration scoring: 7.0-8.5h = full credit, caps at 9h
+export const DURATION_RANGES = {
+  FULL_MIN: 7.0,    // 100% credit starts here
+  FULL_MAX: 8.5,    // 100% credit ends here
+  PARTIAL_MIN: 6.0,  // Below this = 0%
+  PARTIAL_MAX: 9.0,  // Above this = partial credit (oversleep penalty)
+};
+
+// Consistency scoring: variation in bedtime/wake time vs rolling 7-day average
+export const CONSISTENCY_RANGES = {
+  EXCELLENT_MIN: 30,  // <=30 min variation = 100%
+  GOOD_MIN: 60,       // <=60 min = 70%
+  FAIR_MIN: 90,       // <=90 min = 40%
+  // >90 min = 0%
+};
+
+// Sleep efficiency: TST / TIB ratio
+export const EFFICIENCY_RANGES = {
+  EXCELLENT: 90,  // 90%+ = 100%
+  GOOD: 85,       // 85-90% = 80%
+  FAIR: 80,       // 80-85% = 50%
+  // <80% = 20%
+};
+
+// Sleep stages (percentage of total sleep time)
+export const STAGE_RANGES = {
+  DEEP_TARGET_PCT: 15,   // 15%+ of total = full credit
+  DEEP_MIN_PCT: 10,      // 10-15% = partial
+  REM_TARGET_PCT: 20,    // 20%+ of total = full credit
+  REM_MIN_PCT: 15,       // 15-20% = partial
+};
+
+// Sleep latency
+export const LATENCY_RANGES = {
+  IDEAL_MIN: 5,    // 5-20 min = 100%
+  IDEAL_MAX: 20,
+  WARN_MAX: 30,    // 20-30 min = 60%
+  DEBT_MAX: 5,     // <5 min = 60% (sleep debt red flag)
+  // >30 min = 20%
+};
+
 // --- WEEKLY AWARDS (Fun Recognition) ---
 export interface WeeklyAward {
   id: string;
