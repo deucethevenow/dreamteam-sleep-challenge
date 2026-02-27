@@ -430,85 +430,77 @@ export const calculateConsistencyVariation = (
   return { bedtimeVariation, wakeVariation, avgVariation };
 };
 
-// --- WEEKLY AWARDS (Fun Recognition) ---
+// --- WEEKLY AWARDS (Computed from sleep_logs data) ---
 export interface WeeklyAward {
   id: string;
   emoji: string;
   title: string;
   description: string;
   criteria: string;
+  compute: 'most_total_hours' | 'most_daily_wins' | 'best_consistency' | 'best_single_night' |
+           'best_sleep_score' | 'most_logs' | 'best_deep_sleep' | 'best_rem' | 'most_improved' | 'best_efficiency';
 }
 
 export const WEEKLY_AWARDS: WeeklyAward[] = [
-  { 
-    id: 'streak_master', 
-    emoji: '🔥', 
-    title: 'Streak Master', 
-    description: 'Most days logged this week',
-    criteria: 'Person who logged sleep the most days (consistency champion!)'
+  {
+    id: 'sleep_champion', emoji: '🏆', title: 'Sleep Champion',
+    description: 'Most total sleep hours',
+    criteria: 'Highest total banked_hours in the period',
+    compute: 'most_total_hours',
   },
-  { 
-    id: 'hibernation_hero', 
-    emoji: '🛏️', 
-    title: 'Hibernation Hero', 
+  {
+    id: 'crown_collector', emoji: '👑', title: 'Crown Collector',
+    description: 'Most daily top-sleeper wins',
+    criteria: 'Most days with the highest sleep hours',
+    compute: 'most_daily_wins',
+  },
+  {
+    id: 'clockwork', emoji: '🎯', title: 'Clockwork',
+    description: 'Most consistent bedtime/wake time',
+    criteria: 'Lowest standard deviation of bed and wake times',
+    compute: 'best_consistency',
+  },
+  {
+    id: 'power_sleeper', emoji: '⚡', title: 'Power Sleeper',
     description: 'Longest single sleep session',
-    criteria: 'Most hours logged in a single night'
+    criteria: 'Highest sleep_hours in a single log (non-bonus)',
+    compute: 'best_single_night',
   },
-  { 
-    id: 'quick_sleeper', 
-    emoji: '⚡', 
-    title: 'Quick Sleeper', 
-    description: 'Fastest to fall asleep',
-    criteria: 'Lowest sleep latency (from tracker data)'
+  {
+    id: 'quality_royalty', emoji: '💎', title: 'Quality King/Queen',
+    description: 'Highest average sleep score',
+    criteria: 'Highest average sleep_score from wearable data',
+    compute: 'best_sleep_score',
   },
-  { 
-    id: 'most_improved', 
-    emoji: '📈', 
-    title: 'Most Improved', 
-    description: 'Biggest week-over-week improvement',
-    criteria: 'Largest increase in average sleep hours vs previous week'
+  {
+    id: 'engagement_champion', emoji: '📝', title: 'Engagement Champion',
+    description: 'Most sleep logs submitted',
+    criteria: 'Highest count of sleep_logs entries',
+    compute: 'most_logs',
   },
-  { 
-    id: 'consistency_royalty', 
-    emoji: '🎯', 
-    title: 'Consistency Crown', 
-    description: 'Most consistent bedtime',
-    criteria: 'Smallest variation in bedtime across the week'
+  {
+    id: 'deep_diver', emoji: '🌊', title: 'Deep Diver',
+    description: 'Highest average deep sleep percentage',
+    criteria: 'Best ratio of deep_sleep_min to total sleep',
+    compute: 'best_deep_sleep',
   },
-  { 
-    id: 'deep_diver', 
-    emoji: '💎', 
-    title: 'Deep Diver', 
-    description: 'Highest deep sleep percentage',
-    criteria: 'Best ratio of deep sleep to total sleep'
+  {
+    id: 'dream_weaver', emoji: '🌈', title: 'Dream Weaver',
+    description: 'Highest average REM percentage',
+    criteria: 'Best ratio of rem_sleep_min to total sleep',
+    compute: 'best_rem',
   },
-  { 
-    id: 'dream_weaver', 
-    emoji: '🌈', 
-    title: 'Dream Weaver', 
-    description: 'Highest REM percentage',
-    criteria: 'Best ratio of REM sleep to total sleep'
+  {
+    id: 'rising_star', emoji: '📈', title: 'Rising Star',
+    description: 'Most improved week-over-week',
+    criteria: 'Largest increase in average nightly sleep hours vs previous week',
+    compute: 'most_improved',
   },
-  { 
-    id: 'early_bird', 
-    emoji: '🌅', 
-    title: 'Early Bird', 
-    description: 'Earliest riser (with 7+ hours)',
-    criteria: 'Earliest average wake time while still hitting goal'
-  },
-  { 
-    id: 'night_owl_reformed', 
-    emoji: '🦉', 
-    title: 'Reformed Night Owl', 
-    description: 'Most improved bedtime',
-    criteria: 'Biggest shift to earlier bedtime vs previous week'
-  },
-  { 
-    id: 'weekly_mvp', 
-    emoji: '🏆', 
-    title: 'Weekly MVP', 
-    description: 'Best overall sleep score',
-    criteria: 'Highest average sleep score across all logged nights'
+  {
+    id: 'sleep_ninja', emoji: '🥷', title: 'Sleep Ninja',
+    description: 'Highest average sleep efficiency',
+    criteria: 'Best average sleep_efficiency percentage from wearable data',
+    compute: 'best_efficiency',
   },
 ];
 
