@@ -64,6 +64,26 @@ app.use(cors() as any);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // For Slack slash commands (form-encoded data)
 
+// PostgreSQL NUMERIC/DECIMAL columns return as strings via the pg driver.
+// This helper coerces known numeric fields to actual JS numbers so the
+// frontend can safely call .toFixed() and do arithmetic without NaN/concatenation bugs.
+const NUMERIC_USER_FIELDS = ['banked_hours', 'raffle_tickets'];
+const NUMERIC_LOG_FIELDS = [
+  'sleep_hours', 'quality_rating', 'sleep_score',
+  'deep_sleep_min', 'rem_sleep_min', 'light_sleep_min',
+  'awake_min', 'sleep_latency_min', 'sleep_efficiency'
+];
+
+function parseNumericFields(row: any, fields: string[]): any {
+  const parsed = { ...row };
+  for (const f of fields) {
+    if (parsed[f] !== null && parsed[f] !== undefined) {
+      parsed[f] = Number(parsed[f]);
+    }
+  }
+  return parsed;
+}
+
 // Serve Static Files (Frontend)
 // In production (Docker), serve from dist folder. In dev, serve from current directory.
 const staticPath = process.env.NODE_ENV === 'production' ? path.resolve('./dist') : path.resolve('.');
@@ -694,7 +714,7 @@ app.get('/api/users', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   try {
     const result = await pool.query('SELECT * FROM users ORDER BY id ASC');
-    res.json(result.rows);
+    res.json(result.rows.map(r => parseNumericFields(r, NUMERIC_USER_FIELDS)));
   } catch (err: any) {
     console.error("Get Users Error:", err);
     res.status(500).json({ error: err.message });
@@ -710,7 +730,7 @@ app.get('/api/users/:id/logs', async (req, res) => {
       'SELECT * FROM sleep_logs WHERE user_id = $1 ORDER BY date_logged DESC, created_at DESC',
       [userId]
     );
-    res.json(result.rows);
+    res.json(result.rows.map(r => parseNumericFields(r, NUMERIC_LOG_FIELDS)));
   } catch (err: any) {
     console.error("Get User Logs Error:", err);
     res.status(500).json({ error: err.message });
@@ -1511,7 +1531,7 @@ app.get('/api/logs', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   try {
     const result = await pool.query('SELECT * FROM sleep_logs ORDER BY date_logged DESC, created_at DESC');
-    res.json(result.rows);
+    res.json(result.rows.map(r => parseNumericFields(r, NUMERIC_LOG_FIELDS)));
   } catch (err: any) {
     console.error("Get Logs Error:", err);
     res.status(500).json({ error: err.message });
@@ -2090,7 +2110,7 @@ app.post('/api/login', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM users WHERE username = $1 AND team_id = $2', [username, team_id]);
     if (result.rows.length > 0) {
-      res.json(result.rows[0]);
+      res.json(parseNumericFields(result.rows[0], NUMERIC_USER_FIELDS));
     } else {
       res.status(404).json({ error: "User not found" });
     }
