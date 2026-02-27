@@ -259,6 +259,7 @@ export const LATENCY_RANGES = {
 
 // Calculate duration sub-score (0-100)
 export const scoreDuration = (hours: number): number => {
+  if (isNaN(hours) || hours < 0) return 0;
   if (hours >= DURATION_RANGES.FULL_MIN && hours <= DURATION_RANGES.FULL_MAX) return 100;
   if (hours < DURATION_RANGES.PARTIAL_MIN) return 0;
   if (hours < DURATION_RANGES.FULL_MIN) {
@@ -274,6 +275,7 @@ export const scoreDuration = (hours: number): number => {
 
 // Calculate consistency sub-score (0-100) from bedtime variation in minutes
 export const scoreConsistency = (variationMinutes: number): number => {
+  if (isNaN(variationMinutes) || variationMinutes < 0) return 0;
   if (variationMinutes <= CONSISTENCY_RANGES.EXCELLENT_MIN) return 100;
   if (variationMinutes <= CONSISTENCY_RANGES.GOOD_MIN) return 70;
   if (variationMinutes <= CONSISTENCY_RANGES.FAIR_MIN) return 40;
@@ -400,9 +402,9 @@ export const calculateConsistencyVariation = (
 
   const toMinutes = (time: string): number => {
     const [h, m] = time.split(':').map(Number);
-    // Normalize bedtimes: treat hours 0-12 as next-day (add 24h)
+    // Normalize bedtimes: treat hours 0-5 as next-day (add 24h)
     // so 23:00 = 1380, 00:30 = 1470, 01:00 = 1500
-    return h < 12 ? (h + 24) * 60 + m : h * 60 + m;
+    return h < 6 ? (h + 24) * 60 + m : h * 60 + m;
   };
 
   const bedMinutes = sleepLogs.map(l => toMinutes(l.bedtime));
