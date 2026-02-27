@@ -45,11 +45,12 @@ if (process.env.DATABASE_URL) {
       console.log("Database pool created (Cloud SQL Unix socket)");
     } else {
       // For other environments, use connection string
+      const isLocalhost = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('127.0.0.1');
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
+        ...(isLocalhost ? {} : { ssl: { rejectUnauthorized: false } })
       });
-      console.log("Database pool created (connection string)");
+      console.log(`Database pool created (connection string, SSL: ${!isLocalhost})`);
     }
   } catch (err) {
     console.error("Failed to create database pool:", err);
@@ -287,8 +288,8 @@ initDB();
 
 // --- Prize Auto Opt-In Helper ---
 // Constants for prize thresholds (matching frontend constants.ts)
-const RAFFLE_THRESHOLD_HOURS_SERVER = 42; // Weekly goal: 7 hours * 7 days = 49 hours, 60% = ~29.4, but let's use 42 (6 hours/night avg)
-const GRAND_PRIZE_THRESHOLD_HOURS_SERVER = 168; // Monthly goal: ~196 hours (7 hrs * 28 days), 70% = ~137, but we'll use 168 (6 hrs/night * 28 days)
+const RAFFLE_THRESHOLD_HOURS_SERVER = 31.5; // 60% of 52.5h weekly goal
+const GRAND_PRIZE_THRESHOLD_HOURS_SERVER = 162.75; // 70% of 232.5h monthly goal
 const CHALLENGE_START_SERVER = new Date('2025-12-01');
 
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)

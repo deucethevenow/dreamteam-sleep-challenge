@@ -1,25 +1,24 @@
 import { Team, Badge, DailyQuest, BonusActivity } from './types';
 
 export const APP_NAME = "dreamteam";
-export const DAILY_GOAL = 8; // 8 hours of sleep
+export const DAILY_GOAL = 7.5; // 7.5 hours — aligned with 5 complete 90-min sleep cycles (AASM/NSF)
 export const DAYS_IN_MONTH = 31;
 
-// January Calculation: 10 Users * 8 hours * 31 Days = 2,480 hours
-export const GLOBAL_GOAL = 10 * DAILY_GOAL * DAYS_IN_MONTH; 
+// 10 Users * 7.5 hours * 31 Days = 2,325 hours
+export const GLOBAL_GOAL = 10 * DAILY_GOAL * DAYS_IN_MONTH;
 
-// Team Goal: The average hours per member needed to have a "perfect month"
-// 8h * 31 days = 248 hours per person
+// 7.5h * 31 days = 232.5 hours per person
 export const TEAM_AVG_GOAL = DAILY_GOAL * DAYS_IN_MONTH;
 
 // Weekly Logic
-export const WEEKLY_GOAL = DAILY_GOAL * 7; // 56 hours
+export const WEEKLY_GOAL = DAILY_GOAL * 7; // 52.5 hours
 export const RAFFLE_THRESHOLD_PCT = 0.6; // 60%
-export const RAFFLE_THRESHOLD_HOURS = WEEKLY_GOAL * RAFFLE_THRESHOLD_PCT; // 33.6 hours
+export const RAFFLE_THRESHOLD_HOURS = WEEKLY_GOAL * RAFFLE_THRESHOLD_PCT; // 31.5 hours
 
 // Grand Prize Logic (Monthly)
 export const MONTHLY_INDIVIDUAL_GOAL = DAILY_GOAL * DAYS_IN_MONTH;
 export const GRAND_PRIZE_THRESHOLD_PCT = 0.7; // 70%
-export const GRAND_PRIZE_THRESHOLD_HOURS = MONTHLY_INDIVIDUAL_GOAL * GRAND_PRIZE_THRESHOLD_PCT; // 173.6 hours
+export const GRAND_PRIZE_THRESHOLD_HOURS = MONTHLY_INDIVIDUAL_GOAL * GRAND_PRIZE_THRESHOLD_PCT; // 162.75 hours
 
 export const INITIAL_TEAMS: Team[] = [
   { id: 1, name: "The Night Owls", color_hex: "from-indigo-400 to-purple-500", icon: "🦉" },
@@ -43,11 +42,11 @@ export const INITIAL_USERS = [
 // Sleep-themed journey milestones
 export const MILESTONES = [
   { hours: 0, label: "Recess HQ (Wide Awake)" },
-  { hours: 500, label: "Cozy Cabin in the Woods" },
-  { hours: 1000, label: "Zen Meditation Retreat" },
-  { hours: 1500, label: "Cloud Nine Sanctuary" },
-  { hours: 2000, label: "Aurora Borealis Dreamland" },
-  { hours: 2480, label: "Hibernation Hall of Fame" },
+  { hours: 465, label: "Cozy Cabin in the Woods" },       // 20%
+  { hours: 930, label: "Zen Meditation Retreat" },          // 40%
+  { hours: 1395, label: "Cloud Nine Sanctuary" },           // 60%
+  { hours: 1860, label: "Aurora Borealis Dreamland" },      // 80%
+  { hours: 2325, label: "Hibernation Hall of Fame" },       // 100%
 ];
 
 // Sleep conversion rates for fun stats
