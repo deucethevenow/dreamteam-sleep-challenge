@@ -1667,6 +1667,209 @@ app.delete('/api/logs/:id', async (req, res) => {
   }
 });
 
+// --- Weekly Awards Computation ---
+app.get('/api/awards/:period', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "Database not connected" });
+
+  const period = req.params.period; // 'week1', 'week2', 'week3', 'week4', 'final'
+
+  try {
+    // Determine date range
+    const challengeStart = new Date('2026-03-01');
+    let startDate: string, endDate: string;
+
+    if (period === 'final') {
+      startDate = '2026-03-01';
+      endDate = '2026-03-31';
+    } else {
+      const weekNum = parseInt(period.replace('week', ''));
+      const start = new Date(challengeStart);
+      start.setDate(start.getDate() + (weekNum - 1) * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      startDate = start.toISOString().split('T')[0];
+      endDate = end.toISOString().split('T')[0];
+    }
+
+    // Get all logs and users for the period
+    const logsRes = await pool.query(
+      'SELECT * FROM sleep_logs WHERE date_logged >= $1 AND date_logged <= $2',
+      [startDate, endDate]
+    );
+    const usersRes = await pool.query('SELECT * FROM users');
+    const logs = logsRes.rows;
+    const users = usersRes.rows;
+
+    const awards: { id: string; emoji: string; title: string; winner: string; winnerEmoji: string; stat: string }[] = [];
+
+    // 1. Sleep Champion - most total hours
+    const hoursByUser: Record<number, number> = {};
+    logs.forEach((l: any) => { hoursByUser[l.user_id] = (hoursByUser[l.user_id] || 0) + parseFloat(l.sleep_hours); });
+    const topHoursUser = Object.entries(hoursByUser).sort((a, b) => b[1] - a[1])[0];
+    if (topHoursUser) {
+      const u = users.find((u: any) => u.id === parseInt(topHoursUser[0]));
+      if (u) awards.push({ id: 'sleep_champion', emoji: '🏆', title: 'Sleep Champion', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${topHoursUser[1].toFixed(1)} hours` });
+    }
+
+    // 2. Crown Collector - most daily wins
+    const dailyTotals: Record<string, Record<number, number>> = {};
+    logs.forEach((l: any) => {
+      if (!dailyTotals[l.date_logged]) dailyTotals[l.date_logged] = {};
+      dailyTotals[l.date_logged][l.user_id] = (dailyTotals[l.date_logged][l.user_id] || 0) + parseFloat(l.sleep_hours);
+    });
+    const winCounts: Record<number, number> = {};
+    Object.values(dailyTotals).forEach(dayData => {
+      const maxHours = Math.max(...Object.values(dayData));
+      if (maxHours > 0) {
+        Object.entries(dayData).forEach(([uid, hours]) => {
+          if (hours === maxHours) winCounts[parseInt(uid)] = (winCounts[parseInt(uid)] || 0) + 1;
+        });
+      }
+    });
+    const topWinner = Object.entries(winCounts).sort((a, b) => b[1] - a[1])[0];
+    if (topWinner) {
+      const u = users.find((u: any) => u.id === parseInt(topWinner[0]));
+      if (u) awards.push({ id: 'crown_collector', emoji: '👑', title: 'Crown Collector', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${topWinner[1]} wins` });
+    }
+
+    // 3. Clockwork - best consistency (lowest bedtime std dev)
+    const userLogsByUser: Record<number, any[]> = {};
+    logs.filter((l: any) => !l.notes?.startsWith('Bonus') && l.bedtime && l.bedtime !== '00:00')
+      .forEach((l: any) => { if (!userLogsByUser[l.user_id]) userLogsByUser[l.user_id] = []; userLogsByUser[l.user_id].push(l); });
+
+    let bestConsistency = { userId: 0, variation: Infinity };
+    Object.entries(userLogsByUser).forEach(([uid, userLogs]) => {
+      if (userLogs.length < 3) return; // Need at least 3 logs
+      const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h < 12 ? (h + 24) * 60 + m : h * 60 + m; };
+      const bedMins = userLogs.map((l: any) => toMin(l.bedtime));
+      const mean = bedMins.reduce((a: number, b: number) => a + b, 0) / bedMins.length;
+      const stddev = Math.sqrt(bedMins.map((v: number) => Math.pow(v - mean, 2)).reduce((a: number, b: number) => a + b, 0) / bedMins.length);
+      if (stddev < bestConsistency.variation) {
+        bestConsistency = { userId: parseInt(uid), variation: stddev };
+      }
+    });
+    if (bestConsistency.userId > 0) {
+      const u = users.find((u: any) => u.id === bestConsistency.userId);
+      if (u) awards.push({ id: 'clockwork', emoji: '🎯', title: 'Clockwork', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `±${Math.round(bestConsistency.variation)} min variation` });
+    }
+
+    // 4. Power Sleeper - best single night
+    const nonBonusLogs = logs.filter((l: any) => !l.notes?.startsWith('Bonus'));
+    const bestNight = nonBonusLogs.sort((a: any, b: any) => parseFloat(b.sleep_hours) - parseFloat(a.sleep_hours))[0];
+    if (bestNight) {
+      const u = users.find((u: any) => u.id === bestNight.user_id);
+      if (u) awards.push({ id: 'power_sleeper', emoji: '⚡', title: 'Power Sleeper', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${parseFloat(bestNight.sleep_hours).toFixed(1)}h on ${bestNight.date_logged}` });
+    }
+
+    // 5. Quality King/Queen - best avg sleep score
+    const scoresByUser: Record<number, number[]> = {};
+    logs.filter((l: any) => l.sleep_score).forEach((l: any) => {
+      if (!scoresByUser[l.user_id]) scoresByUser[l.user_id] = [];
+      scoresByUser[l.user_id].push(l.sleep_score);
+    });
+    const avgScores = Object.entries(scoresByUser).map(([uid, scores]) => ({
+      userId: parseInt(uid),
+      avg: scores.reduce((a, b) => a + b, 0) / scores.length,
+    })).sort((a, b) => b.avg - a.avg);
+    if (avgScores.length > 0) {
+      const u = users.find((u: any) => u.id === avgScores[0].userId);
+      if (u) awards.push({ id: 'quality_royalty', emoji: '💎', title: 'Quality King/Queen', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${avgScores[0].avg.toFixed(0)} avg score` });
+    }
+
+    // 6. Engagement Champion - most logs
+    const logCounts: Record<number, number> = {};
+    logs.forEach((l: any) => { logCounts[l.user_id] = (logCounts[l.user_id] || 0) + 1; });
+    const topLogger = Object.entries(logCounts).sort((a, b) => b[1] - a[1])[0];
+    if (topLogger) {
+      const u = users.find((u: any) => u.id === parseInt(topLogger[0]));
+      if (u) awards.push({ id: 'engagement_champion', emoji: '📝', title: 'Engagement Champion', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${topLogger[1]} entries` });
+    }
+
+    // 7. Deep Diver - best avg deep sleep %
+    const deepByUser: Record<number, number[]> = {};
+    logs.filter((l: any) => l.deep_sleep_min && parseFloat(l.sleep_hours) > 0).forEach((l: any) => {
+      if (!deepByUser[l.user_id]) deepByUser[l.user_id] = [];
+      deepByUser[l.user_id].push((l.deep_sleep_min / (parseFloat(l.sleep_hours) * 60)) * 100);
+    });
+    const avgDeep = Object.entries(deepByUser).map(([uid, pcts]) => ({
+      userId: parseInt(uid),
+      avg: pcts.reduce((a, b) => a + b, 0) / pcts.length,
+    })).sort((a, b) => b.avg - a.avg);
+    if (avgDeep.length > 0) {
+      const u = users.find((u: any) => u.id === avgDeep[0].userId);
+      if (u) awards.push({ id: 'deep_diver', emoji: '🌊', title: 'Deep Diver', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${avgDeep[0].avg.toFixed(0)}% deep sleep` });
+    }
+
+    // 8. Dream Weaver - best avg REM %
+    const remByUser: Record<number, number[]> = {};
+    logs.filter((l: any) => l.rem_sleep_min && parseFloat(l.sleep_hours) > 0).forEach((l: any) => {
+      if (!remByUser[l.user_id]) remByUser[l.user_id] = [];
+      remByUser[l.user_id].push((l.rem_sleep_min / (parseFloat(l.sleep_hours) * 60)) * 100);
+    });
+    const avgRem = Object.entries(remByUser).map(([uid, pcts]) => ({
+      userId: parseInt(uid),
+      avg: pcts.reduce((a, b) => a + b, 0) / pcts.length,
+    })).sort((a, b) => b.avg - a.avg);
+    if (avgRem.length > 0) {
+      const u = users.find((u: any) => u.id === avgRem[0].userId);
+      if (u) awards.push({ id: 'dream_weaver', emoji: '🌈', title: 'Dream Weaver', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${avgRem[0].avg.toFixed(0)}% REM sleep` });
+    }
+
+    // 9. Rising Star - most improved (needs prev week data; skip if week1)
+    if (period !== 'week1') {
+      const weekNum = period === 'final' ? 4 : parseInt(period.replace('week', ''));
+      const prevStart = new Date(challengeStart);
+      prevStart.setDate(prevStart.getDate() + (weekNum - 2) * 7);
+      const prevEnd = new Date(prevStart);
+      prevEnd.setDate(prevEnd.getDate() + 6);
+
+      const prevLogsRes = await pool.query(
+        'SELECT * FROM sleep_logs WHERE date_logged >= $1 AND date_logged <= $2',
+        [prevStart.toISOString().split('T')[0], prevEnd.toISOString().split('T')[0]]
+      );
+      const prevLogs = prevLogsRes.rows;
+
+      const prevAvg: Record<number, number> = {};
+      const currAvg: Record<number, number> = {};
+      prevLogs.forEach((l: any) => { prevAvg[l.user_id] = (prevAvg[l.user_id] || 0) + parseFloat(l.sleep_hours); });
+      logs.forEach((l: any) => { currAvg[l.user_id] = (currAvg[l.user_id] || 0) + parseFloat(l.sleep_hours); });
+
+      let bestImprovement = { userId: 0, delta: -Infinity };
+      Object.keys(currAvg).forEach(uid => {
+        const id = parseInt(uid);
+        if (prevAvg[id]) {
+          const delta = currAvg[id] - prevAvg[id];
+          if (delta > bestImprovement.delta) bestImprovement = { userId: id, delta };
+        }
+      });
+      if (bestImprovement.userId > 0 && bestImprovement.delta > 0) {
+        const u = users.find((u: any) => u.id === bestImprovement.userId);
+        if (u) awards.push({ id: 'rising_star', emoji: '📈', title: 'Rising Star', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `+${bestImprovement.delta.toFixed(1)}h vs last week` });
+      }
+    }
+
+    // 10. Sleep Ninja - best efficiency
+    const effByUser: Record<number, number[]> = {};
+    logs.filter((l: any) => l.sleep_efficiency).forEach((l: any) => {
+      if (!effByUser[l.user_id]) effByUser[l.user_id] = [];
+      effByUser[l.user_id].push(l.sleep_efficiency);
+    });
+    const avgEff = Object.entries(effByUser).map(([uid, effs]) => ({
+      userId: parseInt(uid),
+      avg: effs.reduce((a, b) => a + b, 0) / effs.length,
+    })).sort((a, b) => b.avg - a.avg);
+    if (avgEff.length > 0) {
+      const u = users.find((u: any) => u.id === avgEff[0].userId);
+      if (u) awards.push({ id: 'sleep_ninja', emoji: '🥷', title: 'Sleep Ninja', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${avgEff[0].avg.toFixed(0)}% efficiency` });
+    }
+
+    res.json({ period, startDate, endDate, awards });
+  } catch (err: any) {
+    console.error("Awards Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/users/:id/raffle', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   const { id } = req.params;
