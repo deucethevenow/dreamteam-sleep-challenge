@@ -72,6 +72,9 @@ export interface UserStats {
   avgSleepScore: number;
   streak: number;
   badges: Badge[];
+  compositeScore: number;       // 0-100 composite score
+  consistencyVariation: number; // avg minutes variation
+  avgQuality?: number;          // avg quality rating 1-5
 }
 
 export interface GlobalProgress {
