@@ -313,7 +313,9 @@ initDB();
 // Constants for prize thresholds (matching frontend constants.ts)
 const RAFFLE_THRESHOLD_HOURS_SERVER = 31.5; // 60% of 52.5h weekly goal
 const GRAND_PRIZE_THRESHOLD_HOURS_SERVER = 162.75; // 70% of 232.5h monthly goal
-const CHALLENGE_START_SERVER = new Date('2025-12-01');
+const CHALLENGE_START_STR = '2026-03-01';
+const CHALLENGE_END_STR = '2026-03-31';
+const CHALLENGE_START_SERVER = new Date(CHALLENGE_START_STR);
 
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)
 const getMountainTimeDateServer = (date: Date = new Date()): string => {
@@ -391,16 +393,16 @@ const autoOptInUserForPrizes = async (pool: Pool, userId: number): Promise<void>
       }
     }
 
-    // Calculate user's total December sleep hours for grand prize
+    // Calculate user's total challenge sleep hours for grand prize
     const totalRes = await pool.query(`
       SELECT COALESCE(SUM(sleep_hours), 0) as total
       FROM sleep_logs
-      WHERE user_id = $1 AND date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+      WHERE user_id = $1 AND date_logged >= '${CHALLENGE_START_STR}' AND date_logged <= '${CHALLENGE_END_STR}'
     `, [userId]);
-    const totalDecemberHours = parseFloat(totalRes.rows[0].total);
+    const totalChallengeHours = parseFloat(totalRes.rows[0].total);
 
     // Check if user qualifies for grand prize
-    if (totalDecemberHours >= GRAND_PRIZE_THRESHOLD_HOURS_SERVER) {
+    if (totalChallengeHours >= GRAND_PRIZE_THRESHOLD_HOURS_SERVER) {
       // Check if user was already qualified (to avoid duplicate celebrations)
       const userRes = await pool.query(
         'SELECT grand_prize_entry FROM users WHERE id = $1',
@@ -416,8 +418,8 @@ const autoOptInUserForPrizes = async (pool: Pool, userId: number): Promise<void>
 
       // Send celebration message only if newly qualified! 🏆
       if (!wasAlreadyQualified) {
-        console.log(`🏆 NEW GRAND PRIZE qualifier! User ${userId} (${totalDecemberHours} total hours)`);
-        sendGrandPrizeQualificationCelebration(pool, userId, totalDecemberHours).catch(err => {
+        console.log(`🏆 NEW GRAND PRIZE qualifier! User ${userId} (${totalChallengeHours} total hours)`);
+        sendGrandPrizeQualificationCelebration(pool, userId, totalChallengeHours).catch(err => {
           console.error("Error sending grand prize celebration:", err);
         });
       }
@@ -470,11 +472,11 @@ app.post('/api/test-celebration', async (req, res) => {
   const { userId, type } = req.body; // type: 'weekly' or 'grand'
   try {
     if (type === 'grand') {
-      // Get user's total December sleep hours
+      // Get user's total challenge sleep hours
       const totalRes = await pool.query(`
         SELECT COALESCE(SUM(sleep_hours), 0) as total
         FROM sleep_logs
-        WHERE user_id = $1 AND date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+        WHERE user_id = $1 AND date_logged >= '${CHALLENGE_START_STR}' AND date_logged <= '${CHALLENGE_END_STR}'
       `, [userId]);
       const totalHours = parseFloat(totalRes.rows[0].total);
       await sendGrandPrizeQualificationCelebration(pool, userId, totalHours);
@@ -776,10 +778,10 @@ app.get('/api/milestones/50-percent', async (req, res) => {
       const progressRes = await pool.query(`
         SELECT COALESCE(SUM(sleep_hours), 0) as total
         FROM sleep_logs
-        WHERE date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+        WHERE date_logged >= '${CHALLENGE_START_STR}' AND date_logged <= '${CHALLENGE_END_STR}'
       `);
       const totalHours = parseFloat(progressRes.rows[0].total);
-      const threshold = 980; // 50% of ~1960 hours (10 people * 7 hrs * 28 days)
+      const threshold = 1162.5; // 50% of 2325 hours (10 people * 7.5 hrs * 31 days)
       const percentage = Math.min(100, (totalHours / threshold) * 100);
 
       res.json({
@@ -1203,14 +1205,14 @@ app.post('/api/prizes/grand/announce', async (req, res) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `📊 *${prize.winner_name}'s December Stats:*\n• 😴 *${parseFloat(prize.total_hours).toFixed(1)} total hours of sleep*`
+          text: `📊 *${prize.winner_name}'s Challenge Stats:*\n• 😴 *${parseFloat(prize.total_hours).toFixed(1)} total hours of sleep*`
         }
       },
       {
         type: "context",
         elements: [{
           type: "mrkdwn",
-          text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit their sleep goal (${GRAND_PRIZE_THRESHOLD_HOURS_SERVER}+ hours). What an incredible December! 🎉`
+          text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit their sleep goal (${GRAND_PRIZE_THRESHOLD_HOURS_SERVER}+ hours). What an incredible challenge! 🎉`
         }]
       },
       { type: "divider" },
@@ -1380,21 +1382,21 @@ app.post('/api/prizes/:week/announce', async (req, res) => {
   }
 });
 
-// December Challenge Reset - Delete old logs, recalculate hours, reset prizes
+// Challenge Reset - Delete old logs, recalculate hours, reset prizes
 app.post('/api/december-reset', async (req, res) => {
   if (!pool) return res.status(503).json({ error: "Database not connected" });
   try {
-    console.log("Starting December Challenge Reset...");
+    console.log("Starting Challenge Reset...");
     const results: string[] = [];
 
     // Step 1: Count logs before deletion
     const beforeCount = await pool.query('SELECT COUNT(*) as count FROM sleep_logs');
-    const oldLogsCount = await pool.query("SELECT COUNT(*) as count FROM sleep_logs WHERE date_logged < '2025-12-01'");
+    const oldLogsCount = await pool.query(`SELECT COUNT(*) as count FROM sleep_logs WHERE date_logged < '${CHALLENGE_START_STR}'`);
     results.push(`Logs before cleanup: ${beforeCount.rows[0].count}`);
-    results.push(`Logs before Dec 1 (to delete): ${oldLogsCount.rows[0].count}`);
+    results.push(`Logs before challenge start (to delete): ${oldLogsCount.rows[0].count}`);
 
-    // Step 2: Delete old sleep logs
-    await pool.query("DELETE FROM sleep_logs WHERE date_logged < '2025-12-01'");
+    // Step 2: Delete old sleep logs (before current challenge)
+    await pool.query(`DELETE FROM sleep_logs WHERE date_logged < '${CHALLENGE_START_STR}'`);
     results.push("Deleted old sleep logs");
 
     // Step 3: Recalculate banked_hours for all users
@@ -1424,10 +1426,10 @@ app.post('/api/december-reset', async (req, res) => {
     results.push(`Logs after cleanup: ${afterCount.rows[0].count}`);
     results.push(`User hours: ${JSON.stringify(userHours.rows)}`);
 
-    console.log("December Challenge Reset Complete:", results);
-    res.json({ success: true, message: "December Challenge Reset Complete", details: results });
+    console.log("Challenge Reset Complete:", results);
+    res.json({ success: true, message: "Challenge Reset Complete", details: results });
   } catch (err: any) {
-    console.error("December Reset Error:", err);
+    console.error("Challenge Reset Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1528,11 +1530,11 @@ app.post('/api/logs', async (req, res) => {
   const sleep_latency_min = metrics?.sleep_latency_min ?? null;
 
   try {
-    // 1. Get total company sleep hours BEFORE this log (for December challenge only)
+    // 1. Get total company sleep hours BEFORE this log (challenge period only)
     const beforeRes = await pool.query(`
       SELECT COALESCE(SUM(sleep_hours), 0) as total
       FROM sleep_logs
-      WHERE date_logged >= '2025-12-01' AND date_logged <= '2025-12-31'
+      WHERE date_logged >= '${CHALLENGE_START_STR}' AND date_logged <= '${CHALLENGE_END_STR}'
     `);
     const previousTotalHours = parseFloat(beforeRes.rows[0].total);
 
@@ -1554,12 +1556,12 @@ app.post('/api/logs', async (req, res) => {
       [sleep_hours, user_id]
     );
 
-    // 4. Calculate new total (only if log is within December challenge)
-    const isDecemberLog = date_logged >= '2025-12-01' && date_logged <= '2025-12-31';
-    const newTotalHours = isDecemberLog ? previousTotalHours + parseFloat(sleep_hours) : previousTotalHours;
+    // 4. Calculate new total (only if log is within challenge period)
+    const isChallengeLog = date_logged >= CHALLENGE_START_STR && date_logged <= CHALLENGE_END_STR;
+    const newTotalHours = isChallengeLog ? previousTotalHours + parseFloat(sleep_hours) : previousTotalHours;
 
     // 5. Check for 50% milestone crossing (async, don't block response)
-    if (isDecemberLog) {
+    if (isChallengeLog) {
       checkAndAnnounceMilestone(pool, user_id, logId, previousTotalHours, newTotalHours).catch(err => {
         console.error("Milestone check error:", err);
       });
@@ -1582,7 +1584,7 @@ app.post('/api/logs', async (req, res) => {
     }
 
     // 7. Auto opt-in for weekly prize and grand prize (async, don't block response)
-    if (isDecemberLog) {
+    if (isChallengeLog) {
       autoOptInUserForPrizes(pool, user_id).catch(err => {
         console.error("Auto opt-in error:", err);
       });
@@ -1647,8 +1649,8 @@ app.patch('/api/logs/:id', async (req, res) => {
     );
 
     // Auto opt-in for prizes (async, in case update pushes user over threshold)
-    const isDecemberLog = date_logged >= '2025-12-01' && date_logged <= '2025-12-31';
-    if (isDecemberLog && hoursDifference > 0) {
+    const isChallengeLog = date_logged >= CHALLENGE_START_STR && date_logged <= CHALLENGE_END_STR;
+    if (isChallengeLog && hoursDifference > 0) {
       autoOptInUserForPrizes(pool, oldLog.user_id).catch(err => {
         console.error("Update log auto opt-in error:", err);
       });

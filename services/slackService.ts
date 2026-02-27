@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { GLOBAL_GOAL, WEEKLY_GOAL, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, DAILY_GOAL } from '../constants';
+import { GLOBAL_GOAL, WEEKLY_GOAL, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, DAILY_GOAL, CHALLENGE_START, CHALLENGE_END } from '../constants';
 import { getDailyFunFact, getMorningMotivation } from './geminiService';
 
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)
@@ -7,14 +7,14 @@ const getMountainTimeDate = (date: Date = new Date()): string => {
   return date.toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
 };
 
-// Challenge starts December 1, 2025. Week 1 = Dec 1-7, Week 2 = Dec 8-14, etc.
-const CHALLENGE_START = new Date('2025-12-01');
+// Challenge weeks: Week 1 = Mar 1-7, Week 2 = Mar 8-14, etc.
+const CHALLENGE_START_DATE = new Date(CHALLENGE_START);
 
 // Helper: Get current challenge week (1-4)
 const getCurrentWeek = (): number => {
   const today = new Date();
   const todayMT = new Date(getMountainTimeDate(today));
-  const daysSinceStart = Math.floor((todayMT.getTime() - CHALLENGE_START.getTime()) / (1000 * 60 * 60 * 24));
+  const daysSinceStart = Math.floor((todayMT.getTime() - CHALLENGE_START_DATE.getTime()) / (1000 * 60 * 60 * 24));
   const week = Math.floor(daysSinceStart / 7) + 1;
   return Math.min(Math.max(week, 1), 4); // Clamp to 1-4
 };
@@ -23,7 +23,7 @@ const getCurrentWeek = (): number => {
 const getDaysLeftInWeek = (): number => {
   const today = new Date();
   const todayMT = new Date(getMountainTimeDate(today));
-  const daysSinceStart = Math.floor((todayMT.getTime() - CHALLENGE_START.getTime()) / (1000 * 60 * 60 * 24));
+  const daysSinceStart = Math.floor((todayMT.getTime() - CHALLENGE_START_DATE.getTime()) / (1000 * 60 * 60 * 24));
   const dayOfWeek = daysSinceStart % 7; // 0 = first day, 6 = last day
   return 7 - dayOfWeek - 1; // Days remaining after today
 };
@@ -533,14 +533,14 @@ const buildGrandPrizeWinnerBlocks = (
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `📊 *${winner.username}'s December Stats:*\n• 😴 *${totalHours.toFixed(1)} total hours of sleep*\n• ${funStat}`
+        text: `📊 *${winner.username}'s Challenge Stats:*\n• 😴 *${totalHours.toFixed(1)} total hours of sleep*\n• ${funStat}`
       }
     },
     {
       type: "context",
       elements: [{
         type: "mrkdwn",
-        text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit their sleep goal (${GRAND_PRIZE_THRESHOLD_HOURS.toFixed(1)}+ hours). What an incredible December! 🎉`
+        text: `🎲 Randomly selected from *${qualifiedCount}* participants who hit their sleep goal (${GRAND_PRIZE_THRESHOLD_HOURS.toFixed(1)}+ hours). What an incredible challenge! 🎉`
       }]
     },
     {
@@ -606,7 +606,7 @@ export const drawGrandPrizeWinner = async (pool: Pool): Promise<{
 
   console.log(`Random selection: index ${randomIndex} = ${winner.username}`);
 
-  // 5. Get winner's total December sleep hours for stats
+  // 5. Get winner's total challenge sleep hours for stats
   const hoursRes = await pool.query(
     `SELECT COALESCE(SUM(sleep_hours), 0) as total FROM sleep_logs WHERE user_id = $1`,
     [winner.id]
@@ -724,15 +724,13 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
   const teams = teamsRes.rows;
   const logs = logsRes.rows;
 
-  // Filter logs to only include December 2025 challenge period (Dec 1-31, 2025)
-  const CHALLENGE_START_DATE = '2025-12-01';
-  const CHALLENGE_END_DATE = '2025-12-31';
-  const decemberLogs = logs.filter((l: any) =>
-    l.date_logged >= CHALLENGE_START_DATE && l.date_logged <= CHALLENGE_END_DATE
+  // Filter logs to challenge period only
+  const challengeLogs = logs.filter((l: any) =>
+    l.date_logged >= CHALLENGE_START && l.date_logged <= CHALLENGE_END
   );
 
-  // Calculate Global Progress (December challenge only)
-  const totalHours = decemberLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
+  // Calculate Global Progress (challenge period only)
+  const totalHours = challengeLogs.reduce((sum: number, l: any) => sum + parseFloat(l.sleep_hours), 0);
   const globalPct = Math.min(100, Math.round((totalHours / GLOBAL_GOAL) * 100));
 
   // Today's date in Mountain Time (America/Denver)
@@ -1022,7 +1020,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*🌍 December Progress:* ${globalPct}%\n\`[${progressBar}]\`\n*${totalHours.toFixed(1)}* hours toward ${GLOBAL_GOAL} hour goal!`
+        text: `*🌍 Challenge Progress:* ${globalPct}%\n\`[${progressBar}]\`\n*${totalHours.toFixed(1)}* hours toward ${GLOBAL_GOAL} hour goal!`
       }
     },
     {
@@ -1086,11 +1084,9 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
   const teams = teamsRes.rows;
   const yesterdayLogs = logsRes.rows;
 
-  // Filter logs to only include December 2025 challenge period
-  const CHALLENGE_START_DATE = '2025-12-01';
-  const CHALLENGE_END_DATE = '2025-12-31';
+  // Filter logs to challenge period only
   const allLogs = allLogsRes.rows.filter((l: any) =>
-    l.date_logged >= CHALLENGE_START_DATE && l.date_logged <= CHALLENGE_END_DATE
+    l.date_logged >= CHALLENGE_START && l.date_logged <= CHALLENGE_END
   );
 
   console.log(`Found ${yesterdayLogs.length} log entries for ${yesterdayStr}`);
@@ -1530,7 +1526,7 @@ export const checkAndAnnounceMilestone = async (
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `*WE DID IT!* The team just crossed *50%* of our December sleep goal!\n\n${user?.avatar_emoji || '😴'} *${user?.username}* ${user?.team_icon || ''} pushed us over the finish line with their latest log!`
+              text: `*WE DID IT!* The team just crossed *50%* of our sleep challenge goal!\n\n${user?.avatar_emoji || '😴'} *${user?.username}* ${user?.team_icon || ''} pushed us over the finish line with their latest log!`
             }
           },
           {
@@ -1630,7 +1626,7 @@ export const sendGrandPrizeCountdownPost = async (pool: Pool): Promise<any> => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*The December Sleep Challenge ends TONIGHT!*\n\n📊 *Final Stats:*\n• 😴 *${stats.totalHours.toFixed(1)}* total hours logged\n• 🏆 *${stats.grandPrizeQualified}* people qualified for grand prize\n• 👥 *${stats.participantCount}* participants`
+          text: `*The Sleep Challenge ends TONIGHT!*\n\n📊 *Final Stats:*\n• 😴 *${stats.totalHours.toFixed(1)}* total hours logged\n• 🏆 *${stats.grandPrizeQualified}* people qualified for grand prize\n• 👥 *${stats.participantCount}* participants`
         }
       },
       {
