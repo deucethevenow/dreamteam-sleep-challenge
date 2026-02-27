@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Badge, SleepMetrics } from '../types';
 import { db } from '../services/dataService';
 import { getSleepTip, analyzeSleepScreenshots, ExtractedSleepData } from '../services/geminiService';
-import { DAILY_GOAL, BONUS_ACTIVITIES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getSleepAura, calculateSleepHours } from '../constants';
+import { DAILY_GOAL, BONUS_ACTIVITIES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getSleepAura, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
 import { Moon, Star, Brain, Ticket, Medal, CalendarClock, CheckCircle2, Crown, Users, Clock, Zap, Coffee, BookOpen, MonitorOff, Thermometer, Bell, WifiOff, RefreshCw, Calendar, Bed, Sun, ChevronDown, ChevronUp, Activity, Upload, Sparkles, AlertCircle, CheckCircle, Edit3, Loader2, Camera } from 'lucide-react';
 import PrizeTracker from './PrizeTracker';
 import MilestoneCelebration from './MilestoneCelebration';
@@ -47,6 +47,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [lightSleepMin, setLightSleepMin] = useState<string>('');
   const [awakeMin, setAwakeMin] = useState<string>('');
   
+  // Composite Score State
+  const [compositeScore, setCompositeScore] = useState(0);
+  const [consistencyVar, setConsistencyVar] = useState(0);
+
   // Gamification State
   const [streak, setStreak] = useState(0);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -117,6 +121,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       }
     } catch (err) {
       console.error('Failed to fetch prizes:', err);
+    }
+
+    // Compute composite sleep score from user's recent logs
+    try {
+      const userLogs = await db.getUserLogs(user.id);
+      const recentLogs = userLogs.slice(0, 7);
+      const consistency = calculateConsistencyVariation(recentLogs);
+      setConsistencyVar(consistency.avgVariation);
+
+      const sleepOnlyLogs = recentLogs.filter(l => !l.bonus_type);
+      const avgHours = sleepOnlyLogs.length > 0
+        ? sleepOnlyLogs.reduce((sum, l) => sum + l.sleep_hours, 0) / sleepOnlyLogs.length
+        : 0;
+      const score = calculateCompositeScore(avgHours, consistency.avgVariation);
+      setCompositeScore(score.total);
+    } catch (err) {
+      console.error('Failed to compute composite score:', err);
     }
 
     if (tip === 'Loading sleep wisdom...') {
@@ -539,6 +560,30 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                         </div>
                         <div className="text-sm font-bold text-gray-700">{monthMetrics.percentOfLife}<span className="text-xs font-normal text-gray-500">%</span></div>
                     </div>
+                </div>
+
+                {/* Composite Sleep Score */}
+                <div className="mt-4 bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-500 flex items-center">
+                      <Star size={14} className="mr-1 text-violet-400" />
+                      Sleep Score
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      compositeScore >= 85 ? 'bg-violet-100 text-violet-700' :
+                      compositeScore >= 70 ? 'bg-blue-100 text-blue-700' :
+                      compositeScore >= 55 ? 'bg-cyan-100 text-cyan-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {compositeScore >= 85 ? 'Excellent' :
+                       compositeScore >= 70 ? 'Good' :
+                       compositeScore >= 55 ? 'Fair' : 'Improving'}
+                    </span>
+                  </div>
+                  <div className="text-3xl font-bold text-gray-900">{compositeScore}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Consistency: &plusmn;{consistencyVar}min
+                  </div>
                 </div>
             </div>
         </div>

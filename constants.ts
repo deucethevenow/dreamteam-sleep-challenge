@@ -144,6 +144,9 @@ export const calculateMetrics = (hours: number) => {
     dreams: Math.round(hours * CONVERSION_RATES.DREAMS_PER_HOUR),
     cycles: Math.round(hours / 1.5), // Sleep cycles are ~90 min
     energyRestored: Math.round(hours * CONVERSION_RATES.ENERGY_RESTORED),
+    minutes: Math.round(hours * 60),
+    days: Math.round((hours / 24) * 10) / 10, // days equivalent, 1 decimal
+    percentOfLife: Math.round((hours / (24 * DAYS_IN_MONTH)) * 1000) / 10, // % of month spent sleeping
   };
 };
 
