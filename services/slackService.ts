@@ -1761,7 +1761,8 @@ export const sendEpicFinaleAnnouncement = async (pool: Pool): Promise<any> => {
 export const sendAwardsCeremony = async (
   pool: Pool,
   period: string, // 'week1', 'week2', etc. or 'final'
-  awards: { id: string; emoji: string; title: string; winner: string; winnerEmoji: string; stat: string }[]
+  awards: { id: string; emoji: string; title: string; winner: string; winnerEmoji: string; stat: string }[],
+  badges?: { id: string; emoji: string; title: string; earners: { username: string; emoji: string }[] }[]
 ): Promise<void> => {
   if (!SLACK_BOT_TOKEN || !SLACK_CHANNEL_ID) return;
 
@@ -1793,6 +1794,31 @@ export const sendAwardsCeremony = async (
         text: `${award.emoji} *${award.title}*\n${award.winnerEmoji} *${award.winner}* — ${award.stat}`
       }
     });
+  }
+
+  // Badge winners section
+  if (badges && badges.length > 0) {
+    blocks.push(
+      { type: 'divider' },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*🎖️ BADGES EARNED THIS WEEK*'
+        }
+      }
+    );
+
+    for (const badge of badges) {
+      const earnerList = badge.earners.map(e => `${e.emoji} ${e.username}`).join(', ');
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `${badge.emoji} *${badge.title}*\n${earnerList}`
+        }
+      });
+    }
   }
 
   blocks.push(
@@ -1908,11 +1934,11 @@ export const sendChallengeKickoff = async () => {
   ];
   await postToSlack(scoringBlocks);
 
-  // Message 3: Prizes & Bonus Activities
+  // Message 3: Prizes
   const prizesBlocks = [
     {
       type: 'header',
-      text: { type: 'plain_text', text: '🎁 PRIZES & BONUS POINTS', emoji: true }
+      text: { type: 'plain_text', text: '🎁 PRIZES', emoji: true }
     },
     {
       type: 'section',
@@ -1937,22 +1963,6 @@ export const sendChallengeKickoff = async () => {
           + '🧖 *Sleep Spa Experience ($300)* — float tank + deep tissue massage + Theragun Mini + aromatherapy\n'
           + '🎁 *Sleeper\'s Choice ($300)* — spend it on ANY sleep products you want!'
       }
-    },
-    { type: 'divider' },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: '*⭐ BONUS ACTIVITIES (extra hours!)*\n\n'
-          + '☕ *No Caffeine After 2pm* — +1 hour\n'
-          + '📖 *Wind-down Routine* — +0.5 hours\n'
-          + '📵 *No Screens 1hr Before Bed* — +0.5 hours\n'
-          + '🌡️ *Room Temp 65-68°F* — +0.5 hours\n'
-          + '🧘 *Meditation Before Bed* — +0.5 hours\n'
-          + '💪 *Exercise Today* — +0.5 hours\n'
-          + '❤️ *Gratitude Journal* — +0.25 hours\n'
-          + '💧 *Proper Hydration* — +0.25 hours'
-      }
     }
   ];
   await postToSlack(prizesBlocks);
@@ -1969,8 +1979,7 @@ export const sendChallengeKickoff = async () => {
         type: 'mrkdwn',
         text: '*1️⃣ Log your sleep daily* on the dashboard\n'
           + '• Enter bedtime, wake time, and quality rating\n'
-          + '• Have a wearable? Upload a screenshot for bonus metrics!\n'
-          + '• Check off bonus activities for extra hours\n\n'
+          + '• Have a wearable? Upload a screenshot for bonus metrics!\n\n'
           + '*2️⃣ Watch the leaderboard* 📊\n'
           + '• Daily morning recaps at 9 AM\n'
           + '• Evening digests at 5 PM\n'

@@ -1706,7 +1706,7 @@ app.delete('/api/logs/:id', async (req, res) => {
 // --- Weekly Awards Computation ---
 
 // Standalone awards computation function (used by both GET and POST handlers)
-async function computeAwards(dbPool: Pool, period: string): Promise<{ period: string; startDate: string; endDate: string; awards: { id: string; emoji: string; title: string; winner: string; winnerEmoji: string; stat: string }[] }> {
+async function computeAwards(dbPool: Pool, period: string): Promise<{ period: string; startDate: string; endDate: string; awards: { id: string; emoji: string; title: string; winner: string; winnerEmoji: string; stat: string }[]; badges: { id: string; emoji: string; title: string; earners: { username: string; emoji: string }[] }[] }> {
   // Determine date range
   const challengeStart = new Date('2026-03-01');
   let startDate: string, endDate: string;
@@ -1910,7 +1910,114 @@ async function computeAwards(dbPool: Pool, period: string): Promise<{ period: st
     if (u) awards.push({ id: 'sleep_ninja', emoji: '🥷', title: 'Sleep Ninja', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${avgEff[0].avg.toFixed(0)}% efficiency` });
   }
 
-  return { period, startDate, endDate, awards };
+  // --- Badge Winners ---
+  // Compute which users earned each badge during this period
+  const badges: { id: string; emoji: string; title: string; earners: { username: string; emoji: string }[] }[] = [];
+
+  // 1. Sleep Champion badge: 8+ hours 3 nights in a row
+  const streak3Earners: { username: string; emoji: string }[] = [];
+  const sortedLogsByUser: Record<number, any[]> = {};
+  nonBonusLogs
+    .sort((a: any, b: any) => a.date_logged.localeCompare(b.date_logged))
+    .forEach((l: any) => {
+      if (!sortedLogsByUser[l.user_id]) sortedLogsByUser[l.user_id] = [];
+      sortedLogsByUser[l.user_id].push(l);
+    });
+  for (const [uid, userLogs] of Object.entries(sortedLogsByUser)) {
+    let streak = 0;
+    for (const l of userLogs) {
+      if (parseFloat(l.sleep_hours) >= 8) { streak++; } else { streak = 0; }
+      if (streak >= 3) {
+        const u = users.find((u: any) => u.id === parseInt(uid));
+        if (u) streak3Earners.push({ username: u.username, emoji: u.avatar_emoji });
+        break;
+      }
+    }
+  }
+  if (streak3Earners.length > 0) {
+    badges.push({ id: 'streak_3', emoji: '🏆', title: 'Sleep Champion', earners: streak3Earners });
+  }
+
+  // 2. Early Bird badge: in bed before 10pm (excludes 0-5am as "next day")
+  const earlyEarners: { username: string; emoji: string }[] = [];
+  for (const [uid, userLogs] of Object.entries(sortedLogsByUser)) {
+    const hasEarly = userLogs.some((l: any) => {
+      if (!l.bedtime || l.bedtime === '00:00') return false;
+      const [h] = l.bedtime.split(':').map(Number);
+      return h >= 6 && h < 22;
+    });
+    if (hasEarly) {
+      const u = users.find((u: any) => u.id === parseInt(uid));
+      if (u) earlyEarners.push({ username: u.username, emoji: u.avatar_emoji });
+    }
+  }
+  if (earlyEarners.length > 0) {
+    badges.push({ id: 'early_sleeper', emoji: '🌅', title: 'Early Bird', earners: earlyEarners });
+  }
+
+  // 3. Quality King badge: logged 5-star sleep quality
+  const qualityEarners: { username: string; emoji: string }[] = [];
+  const qualityChecked = new Set<number>();
+  logs.forEach((l: any) => {
+    if (l.quality === 5 && !qualityChecked.has(l.user_id)) {
+      qualityChecked.add(l.user_id);
+      const u = users.find((u: any) => u.id === l.user_id);
+      if (u) qualityEarners.push({ username: u.username, emoji: u.avatar_emoji });
+    }
+  });
+  if (qualityEarners.length > 0) {
+    badges.push({ id: 'quality_king', emoji: '👑', title: 'Quality King', earners: qualityEarners });
+  }
+
+  // 4. Weekend Warrior badge: great sleep (7.5h+) on Saturday or Sunday
+  const weekendEarners: { username: string; emoji: string }[] = [];
+  const weekendChecked = new Set<number>();
+  nonBonusLogs.forEach((l: any) => {
+    const dayOfWeek = new Date(l.date_logged + 'T12:00:00').getDay(); // 0=Sun, 6=Sat
+    if ((dayOfWeek === 0 || dayOfWeek === 6) && parseFloat(l.sleep_hours) >= 7.5 && !weekendChecked.has(l.user_id)) {
+      weekendChecked.add(l.user_id);
+      const u = users.find((u: any) => u.id === l.user_id);
+      if (u) weekendEarners.push({ username: u.username, emoji: u.avatar_emoji });
+    }
+  });
+  if (weekendEarners.length > 0) {
+    badges.push({ id: 'weekend', emoji: '🎉', title: 'Weekend Warrior', earners: weekendEarners });
+  }
+
+  // 5. Deep Sleeper badge: 9+ hours in one night
+  const deepSleeperEarners: { username: string; emoji: string }[] = [];
+  const deepChecked = new Set<number>();
+  nonBonusLogs.forEach((l: any) => {
+    if (parseFloat(l.sleep_hours) >= 9 && !deepChecked.has(l.user_id)) {
+      deepChecked.add(l.user_id);
+      const u = users.find((u: any) => u.id === l.user_id);
+      if (u) deepSleeperEarners.push({ username: u.username, emoji: u.avatar_emoji });
+    }
+  });
+  if (deepSleeperEarners.length > 0) {
+    badges.push({ id: 'deep_sleeper', emoji: '💎', title: 'Deep Sleeper', earners: deepSleeperEarners });
+  }
+
+  // 6. Nightly Champion badge: had the most sleep in at least one night
+  const nightlyChampEarners: { username: string; emoji: string }[] = [];
+  const nightlyChecked = new Set<number>();
+  Object.values(dailyTotals).forEach(dayData => {
+    const maxHours = Math.max(...Object.values(dayData));
+    if (maxHours > 0) {
+      Object.entries(dayData).forEach(([uid, hours]) => {
+        if (hours === maxHours && !nightlyChecked.has(parseInt(uid))) {
+          nightlyChecked.add(parseInt(uid));
+          const u = users.find((u: any) => u.id === parseInt(uid));
+          if (u) nightlyChampEarners.push({ username: u.username, emoji: u.avatar_emoji });
+        }
+      });
+    }
+  });
+  if (nightlyChampEarners.length > 0) {
+    badges.push({ id: 'daily_winner', emoji: '🌙', title: 'Nightly Champion', earners: nightlyChampEarners });
+  }
+
+  return { period, startDate, endDate, awards, badges };
 }
 
 app.get('/api/awards/:period', async (req, res) => {
@@ -1945,8 +2052,8 @@ app.post('/api/awards/:period/announce', async (req, res) => {
 
   try {
     const awardsData = await computeAwards(pool, period);
-    await sendAwardsCeremony(pool, period, awardsData.awards);
-    res.json({ success: true, awards: awardsData.awards });
+    await sendAwardsCeremony(pool, period, awardsData.awards, awardsData.badges);
+    res.json({ success: true, awards: awardsData.awards, badges: awardsData.badges });
   } catch (err: any) {
     console.error("Awards Announce Error:", err);
     res.status(500).json({ error: err.message });
