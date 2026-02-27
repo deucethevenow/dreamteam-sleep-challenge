@@ -257,6 +257,133 @@ export const LATENCY_RANGES = {
   // >30 min = 20%
 };
 
+// Calculate duration sub-score (0-100)
+export const scoreDuration = (hours: number): number => {
+  if (hours >= DURATION_RANGES.FULL_MIN && hours <= DURATION_RANGES.FULL_MAX) return 100;
+  if (hours < DURATION_RANGES.PARTIAL_MIN) return 0;
+  if (hours < DURATION_RANGES.FULL_MIN) {
+    // Linear scale from PARTIAL_MIN to FULL_MIN
+    return Math.round(((hours - DURATION_RANGES.PARTIAL_MIN) / (DURATION_RANGES.FULL_MIN - DURATION_RANGES.PARTIAL_MIN)) * 100);
+  }
+  if (hours > DURATION_RANGES.FULL_MAX && hours <= DURATION_RANGES.PARTIAL_MAX) {
+    // Gentle oversleep penalty: 100 down to 70
+    return Math.round(100 - ((hours - DURATION_RANGES.FULL_MAX) / (DURATION_RANGES.PARTIAL_MAX - DURATION_RANGES.FULL_MAX)) * 30);
+  }
+  return 70; // >9h = cap at 70
+};
+
+// Calculate consistency sub-score (0-100) from bedtime variation in minutes
+export const scoreConsistency = (variationMinutes: number): number => {
+  if (variationMinutes <= CONSISTENCY_RANGES.EXCELLENT_MIN) return 100;
+  if (variationMinutes <= CONSISTENCY_RANGES.GOOD_MIN) return 70;
+  if (variationMinutes <= CONSISTENCY_RANGES.FAIR_MIN) return 40;
+  return 0;
+};
+
+// Calculate efficiency sub-score (0-100)
+export const scoreEfficiency = (efficiencyPct: number | undefined): number => {
+  if (efficiencyPct === undefined || efficiencyPct === null) return -1; // -1 = no data
+  if (efficiencyPct >= EFFICIENCY_RANGES.EXCELLENT) return 100;
+  if (efficiencyPct >= EFFICIENCY_RANGES.GOOD) return 80;
+  if (efficiencyPct >= EFFICIENCY_RANGES.FAIR) return 50;
+  return 20;
+};
+
+// Calculate sleep stages sub-score (0-100) from deep% and REM%
+export const scoreSleepStages = (deepPct: number | undefined, remPct: number | undefined): number => {
+  if ((deepPct === undefined || deepPct === null) && (remPct === undefined || remPct === null)) return -1;
+  let score = 0;
+  let components = 0;
+
+  if (deepPct !== undefined && deepPct !== null) {
+    components++;
+    if (deepPct >= STAGE_RANGES.DEEP_TARGET_PCT) score += 100;
+    else if (deepPct >= STAGE_RANGES.DEEP_MIN_PCT) score += 60;
+    else score += 20;
+  }
+
+  if (remPct !== undefined && remPct !== null) {
+    components++;
+    if (remPct >= STAGE_RANGES.REM_TARGET_PCT) score += 100;
+    else if (remPct >= STAGE_RANGES.REM_MIN_PCT) score += 60;
+    else score += 20;
+  }
+
+  return components > 0 ? Math.round(score / components) : -1;
+};
+
+// Calculate latency sub-score (0-100)
+export const scoreLatency = (latencyMin: number | undefined): number => {
+  if (latencyMin === undefined || latencyMin === null) return -1;
+  if (latencyMin < LATENCY_RANGES.DEBT_MAX) return 60; // <5 min = sleep debt
+  if (latencyMin <= LATENCY_RANGES.IDEAL_MAX) return 100; // 5-20 min ideal
+  if (latencyMin <= LATENCY_RANGES.WARN_MAX) return 60;   // 20-30 min
+  return 20; // >30 min
+};
+
+// Main composite score calculator
+export interface CompositeScoreResult {
+  total: number;            // 0-100 composite score
+  duration: number;         // 0-100 sub-score
+  consistency: number;      // 0-100 sub-score
+  efficiency: number;       // 0-100 sub-score or -1 if no data
+  sleepStages: number;      // 0-100 sub-score or -1 if no data
+  latency: number;          // 0-100 sub-score or -1 if no data
+  hasWearableData: boolean; // true if efficiency/stages/latency available
+}
+
+export const calculateCompositeScore = (
+  hours: number,
+  consistencyVariationMin: number,
+  efficiencyPct?: number,
+  deepPct?: number,
+  remPct?: number,
+  latencyMin?: number,
+): CompositeScoreResult => {
+  const durationScore = scoreDuration(hours);
+  const consistencyScore = scoreConsistency(consistencyVariationMin);
+  const efficiencyScore = scoreEfficiency(efficiencyPct);
+  const stagesScore = scoreSleepStages(deepPct, remPct);
+  const latencyScore = scoreLatency(latencyMin);
+
+  // Determine which sub-scores have data
+  const hasWearableData = efficiencyScore !== -1 || stagesScore !== -1 || latencyScore !== -1;
+
+  let total: number;
+  if (hasWearableData) {
+    // Use all available dimensions with proper weighting
+    let weightSum = SCORE_WEIGHTS.DURATION + SCORE_WEIGHTS.CONSISTENCY;
+    let scoreSum = durationScore * SCORE_WEIGHTS.DURATION + consistencyScore * SCORE_WEIGHTS.CONSISTENCY;
+
+    if (efficiencyScore !== -1) {
+      scoreSum += efficiencyScore * SCORE_WEIGHTS.EFFICIENCY;
+      weightSum += SCORE_WEIGHTS.EFFICIENCY;
+    }
+    if (stagesScore !== -1) {
+      scoreSum += stagesScore * SCORE_WEIGHTS.SLEEP_STAGES;
+      weightSum += SCORE_WEIGHTS.SLEEP_STAGES;
+    }
+    if (latencyScore !== -1) {
+      scoreSum += latencyScore * SCORE_WEIGHTS.LATENCY;
+      weightSum += SCORE_WEIGHTS.LATENCY;
+    }
+    total = Math.round(scoreSum / weightSum);
+  } else {
+    // No wearable data: redistribute to 60% duration, 40% consistency
+    total = Math.round(durationScore * 0.6 + consistencyScore * 0.4);
+  }
+
+  return {
+    total,
+    duration: durationScore,
+    consistency: consistencyScore,
+    efficiency: efficiencyScore,
+    sleepStages: stagesScore,
+    latency: latencyScore,
+    hasWearableData,
+  };
+};
+
 // --- WEEKLY AWARDS (Fun Recognition) ---
 export interface WeeklyAward {
   id: string;
