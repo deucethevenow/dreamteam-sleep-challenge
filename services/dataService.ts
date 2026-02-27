@@ -1,5 +1,5 @@
 import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics } from '../types';
-import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, calculateSleepHours } from '../constants';
+import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
 
 // API BASE URL - In Replit/Production this is usually relative or configured
 const API_URL = '/api';
@@ -418,6 +418,7 @@ class DataService {
         totalHours,
         memberCount,
         averageHours,
+        avgSleepScore: 0,
         members: teamMembers
       };
     }).sort((a, b) => b.totalHours - a.totalHours);
@@ -576,11 +577,55 @@ class DataService {
       const streak = this.calculateStreak(userLogs);
       const dailyWins = userDailyWins[user.id] || 0;
       const badges = this.calculateBadges(userLogs, streak, dailyWins);
-      
+
+      // Calculate consistency from recent logs
+      const recentLogs = userLogs
+        .sort((a, b) => b.date_logged.localeCompare(a.date_logged))
+        .slice(0, 7);
+      const consistency = calculateConsistencyVariation(recentLogs);
+
+      // Calculate average wearable metrics for composite score
+      const logsWithMetrics = userLogs.filter(l => !l.bonus_type && l.sleep_hours > 0);
+      const avgEfficiency = logsWithMetrics.length > 0 && logsWithMetrics.some(l => l.metrics?.sleep_efficiency)
+        ? logsWithMetrics.filter(l => l.metrics?.sleep_efficiency).reduce((sum, l) => sum + (l.metrics?.sleep_efficiency || 0), 0) / logsWithMetrics.filter(l => l.metrics?.sleep_efficiency).length
+        : undefined;
+
+      const avgDeepPct = logsWithMetrics.length > 0 && logsWithMetrics.some(l => l.metrics?.deep_sleep_min)
+        ? logsWithMetrics.filter(l => l.metrics?.deep_sleep_min).reduce((sum, l) => {
+            const totalMin = l.sleep_hours * 60;
+            return sum + ((l.metrics?.deep_sleep_min || 0) / totalMin) * 100;
+          }, 0) / logsWithMetrics.filter(l => l.metrics?.deep_sleep_min).length
+        : undefined;
+
+      const avgRemPct = logsWithMetrics.length > 0 && logsWithMetrics.some(l => l.metrics?.rem_sleep_min)
+        ? logsWithMetrics.filter(l => l.metrics?.rem_sleep_min).reduce((sum, l) => {
+            const totalMin = l.sleep_hours * 60;
+            return sum + ((l.metrics?.rem_sleep_min || 0) / totalMin) * 100;
+          }, 0) / logsWithMetrics.filter(l => l.metrics?.rem_sleep_min).length
+        : undefined;
+
+      const avgLatency = logsWithMetrics.length > 0 && logsWithMetrics.some(l => l.metrics?.sleep_latency_min)
+        ? logsWithMetrics.filter(l => l.metrics?.sleep_latency_min).reduce((sum, l) => sum + (l.metrics?.sleep_latency_min || 0), 0) / logsWithMetrics.filter(l => l.metrics?.sleep_latency_min).length
+        : undefined;
+
+      // Average nightly hours for composite (not total)
+      const avgNightlyHours = logsWithMetrics.length > 0
+        ? logsWithMetrics.reduce((sum, l) => sum + l.sleep_hours, 0) / logsWithMetrics.length
+        : 0;
+
+      const composite = calculateCompositeScore(
+        avgNightlyHours,
+        consistency.avgVariation,
+        avgEfficiency,
+        avgDeepPct,
+        avgRemPct,
+        avgLatency,
+      );
+
       // Calculate average quality
       const qualityLogs = userLogs.filter(l => l.quality_rating);
-      const avgQuality = qualityLogs.length > 0 
-        ? qualityLogs.reduce((sum, l) => sum + (l.quality_rating || 0), 0) / qualityLogs.length 
+      const avgQuality = qualityLogs.length > 0
+        ? qualityLogs.reduce((sum, l) => sum + (l.quality_rating || 0), 0) / qualityLogs.length
         : undefined;
 
       return {
@@ -589,9 +634,12 @@ class DataService {
         totalHours,
         streak,
         badges,
-        avgQuality
+        compositeScore: composite.total,
+        consistencyVariation: consistency.avgVariation,
+        avgQuality,
+        avgSleepScore: composite.total,
       };
-    }).sort((a, b) => b.totalHours - a.totalHours);
+    }).sort((a, b) => b.compositeScore - a.compositeScore);
   }
   
   getDaysLeftInMonth(): number {
