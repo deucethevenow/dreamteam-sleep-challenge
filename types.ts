@@ -82,6 +82,10 @@ export interface GlobalProgress {
   goal: number;
   percentage: number;
   currentLocation: string;
+  pace: number;              // percentage: >100 = ahead, <100 = behind
+  expectedHours: number;     // where we should be by today
+  projectedFinish: string;   // "Day 28" or "Won't reach goal"
+  dailyNeeded: number;       // hours/day needed to hit goal from here
 }
 
 export interface DailyTeamStat {

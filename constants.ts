@@ -4,6 +4,10 @@ export const APP_NAME = "dreamteam";
 export const DAILY_GOAL = 7.5; // 7.5 hours — aligned with 5 complete 90-min sleep cycles (AASM/NSF)
 export const DAYS_IN_MONTH = 31;
 
+export const CHALLENGE_START = '2026-03-01'; // Challenge start date
+export const CHALLENGE_END = '2026-03-31';   // Challenge end date
+export const PARTICIPANT_COUNT = 10;
+
 // 10 Users * 7.5 hours * 31 Days = 2,325 hours
 export const GLOBAL_GOAL = 10 * DAILY_GOAL * DAYS_IN_MONTH;
 

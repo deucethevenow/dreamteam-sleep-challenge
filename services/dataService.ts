@@ -376,15 +376,15 @@ class DataService {
   async getGlobalProgress(): Promise<GlobalProgress> {
     const logs = await this.fetchLogs();
 
-    const CHALLENGE_START = '2025-01-01';
-    const CHALLENGE_END = '2025-01-31';
+    const CHALLENGE_START_DATE = new Date('2026-03-01');
+    const CHALLENGE_END_DATE = new Date('2026-03-31');
     const challengeLogs = logs.filter(log =>
-      log.date_logged >= CHALLENGE_START && log.date_logged <= CHALLENGE_END
+      log.date_logged >= '2026-03-01' && log.date_logged <= '2026-03-31'
     );
 
     const totalHours = challengeLogs.reduce((sum, log) => sum + log.sleep_hours, 0);
     const percentage = Math.min(100, Math.round((totalHours / GLOBAL_GOAL) * 100));
-    
+
     let currentLocation = MILESTONES[0].label;
     for (let i = 0; i < MILESTONES.length; i++) {
       if (totalHours >= MILESTONES[i].hours) {
@@ -392,11 +392,45 @@ class DataService {
       }
     }
 
+    // Trajectory calculations
+    const today = new Date();
+    const dayOfChallenge = Math.max(1, Math.floor(
+      (today.getTime() - CHALLENGE_START_DATE.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1);
+    const totalDays = 31;
+    const daysRemaining = Math.max(0, totalDays - dayOfChallenge);
+
+    // Expected hours by today = (day / totalDays) * goal
+    const expectedHours = Math.round((dayOfChallenge / totalDays) * GLOBAL_GOAL * 10) / 10;
+    const pace = expectedHours > 0 ? Math.round((totalHours / expectedHours) * 100) : 100;
+
+    // Daily needed = remaining hours / remaining days (per person)
+    const remainingHours = GLOBAL_GOAL - totalHours;
+    const dailyNeeded = daysRemaining > 0
+      ? Math.round((remainingHours / daysRemaining / 10) * 10) / 10  // per person per day
+      : 0;
+
+    // Projected finish day
+    const avgDailyRate = dayOfChallenge > 0 ? totalHours / dayOfChallenge : 0;
+    let projectedFinish = "Won't reach goal";
+    if (avgDailyRate > 0) {
+      const daysToGoal = Math.ceil((GLOBAL_GOAL - totalHours) / avgDailyRate);
+      const finishDay = dayOfChallenge + daysToGoal;
+      if (finishDay <= totalDays) {
+        projectedFinish = `Day ${finishDay}`;
+      }
+    }
+    if (totalHours >= GLOBAL_GOAL) projectedFinish = 'Complete!';
+
     return {
       totalHours,
       goal: GLOBAL_GOAL,
       percentage,
-      currentLocation
+      currentLocation,
+      pace,
+      expectedHours,
+      projectedFinish,
+      dailyNeeded,
     };
   }
 
