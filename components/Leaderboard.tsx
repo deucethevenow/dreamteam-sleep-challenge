@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db } from '../services/dataService';
 import { TeamStats, UserStats, DailyTeamStat, Team } from '../types';
 import { calculateMetrics } from '../constants';
-import { Trophy, Users, TrendingUp, BarChart3, Flag, Moon, Clock, Star } from 'lucide-react';
+import { Users, BarChart3, Flag, Moon, Clock, Star } from 'lucide-react';
 
 const Leaderboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'teams' | 'sleepers' | 'trends'>('teams');
@@ -90,7 +90,7 @@ const Leaderboard: React.FC = () => {
         {activeTab === 'teams' && (
           <div className="divide-y divide-gray-100">
             {teamStats.map((stat, index) => {
-              const metrics = calculateSleepMetrics(stat.totalHours);
+              const metrics = calculateMetrics(stat.totalHours);
               const leaderTotal = teamStats.length > 0 ? teamStats[0].totalHours : 0;
               const gap = leaderTotal - stat.totalHours;
               
@@ -218,10 +218,10 @@ const Leaderboard: React.FC = () => {
 
         {activeTab === 'sleepers' && (
           <div className="divide-y divide-gray-100">
-            {userStats.slice(0, 10).map((stat, index) => (
+            {[...userStats].sort((a, b) => b.compositeScore - a.compositeScore).slice(0, 10).map((stat, index) => (
               <div key={stat.user.id} className="p-4 flex items-center hover:bg-gray-50 transition-colors">
                 <div className={`w-8 h-8 flex items-center justify-center rounded-full font-bold mr-4 ${
-                  index === 0 ? 'bg-yellow-100 text-yellow-600' : 
+                  index === 0 ? 'bg-yellow-100 text-yellow-600' :
                   index === 1 ? 'bg-gray-100 text-gray-600' :
                   index === 2 ? 'bg-orange-100 text-orange-600' : 'text-gray-400'
                 }`}>
@@ -240,10 +240,26 @@ const Leaderboard: React.FC = () => {
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">{stat.user.username}</h3>
                   <div className="text-xs text-gray-500">{stat.teamName}</div>
+                  {/* Consistency indicator */}
+                  <div className="flex items-center text-xs text-gray-500 mt-1">
+                    {stat.consistencyVariation <= 30 ? '🎯 Clockwork' :
+                     stat.consistencyVariation <= 60 ? '👍 Steady' :
+                     stat.consistencyVariation <= 90 ? '📈 Improving' : '🔀 Varied'}
+                    <span className="ml-1 text-gray-400">(±{stat.consistencyVariation}min)</span>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold text-gray-900">{stat.totalHours.toFixed(1)}</div>
-                  <div className="text-xs text-gray-400">total hours</div>
+                  {/* Composite Score Badge */}
+                  <div className={`text-2xl font-bold ${
+                    stat.compositeScore >= 85 ? 'text-violet-600' :
+                    stat.compositeScore >= 70 ? 'text-blue-600' :
+                    stat.compositeScore >= 55 ? 'text-cyan-600' :
+                    'text-gray-500'
+                  }`}>
+                    {stat.compositeScore}
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-medium">SCORE</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{stat.totalHours.toFixed(1)}h total</div>
                 </div>
               </div>
             ))}
