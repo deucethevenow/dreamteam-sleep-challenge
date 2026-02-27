@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Badge, SleepMetrics } from '../types';
+import { User, Badge, SleepMetrics, BonusType } from '../types';
 import { db } from '../services/dataService';
 import { getSleepTip, analyzeSleepScreenshots, ExtractedSleepData } from '../services/geminiService';
 import { DAILY_GOAL, BONUS_ACTIVITIES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getSleepAura, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
@@ -330,7 +330,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   };
   
-  const handleBonusLog = async (hours: number, type: string) => {
+  const handleBonusLog = async (hours: number, type: BonusType) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {

@@ -1,4 +1,4 @@
-import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics } from '../types';
+import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics, BonusType } from '../types';
 import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
 
 // API BASE URL - In Replit/Production this is usually relative or configured
@@ -157,7 +157,7 @@ class DataService {
   }
 
   // Log bonus activity (gives hour credits)
-  async logBonus(userId: number, hours: number, bonusType: string, customDate?: string): Promise<void> {
+  async logBonus(userId: number, hours: number, bonusType: BonusType, customDate?: string): Promise<void> {
     const dateStr = customDate || getMountainTimeDate();
 
     try {
