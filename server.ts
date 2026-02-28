@@ -116,6 +116,10 @@ const seedData = async () => {
     );
   }
 
+  // Remove any users not in the seed list (e.g. manually-added test users)
+  const validIds = INITIAL_USERS.map(u => u.id);
+  await pool.query('DELETE FROM users WHERE id != ALL($1::int[])', [validIds]);
+
   // Seed Prizes
   console.log("Seeding Prizes...");
   const prizes = [
