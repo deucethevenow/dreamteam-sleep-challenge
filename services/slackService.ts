@@ -1869,7 +1869,7 @@ export const sendChallengeKickoff = async () => {
       text: {
         type: 'mrkdwn',
         text: '*🎯 OUR COLLECTIVE GOAL*\n\n'
-          + '10 teammates × 7.5 hours × 31 days = *2,325 total hours of sleep*\n\n'
+          + '9 teammates × 7.5 hours × 31 days = *2,093 total hours of sleep*\n\n'
           + 'Track our journey from _Recess HQ (Wide Awake)_ all the way to the _Hibernation Hall of Fame_ 🏛️'
       }
     },
@@ -1987,7 +1987,7 @@ export const sendChallengeKickoff = async () => {
           + '*3️⃣ Hit your targets*\n'
           + '• 60% weekly (31.5h) = raffle ticket 🎟️\n'
           + '• 70% monthly (162.75h) = grand prize entry 👑\n'
-          + '• Team goal: 2,325 total hours = unlock the journey map!'
+          + '• Team goal: 2,093 total hours = unlock the journey map!'
       }
     },
     { type: 'divider' },
@@ -1996,9 +1996,9 @@ export const sendChallengeKickoff = async () => {
       text: {
         type: 'mrkdwn',
         text: '*🗺️ THE JOURNEY*\n\n'
-          + '🏢 Recess HQ (Wide Awake) → 🏕️ Cozy Cabin (465h) → '
-          + '🧘 Zen Retreat (930h) → ☁️ Cloud Nine (1,395h) → '
-          + '🌌 Aurora Dreamland (1,860h) → 🏛️ Hibernation Hall of Fame (2,325h)'
+          + '🏢 Recess HQ (Wide Awake) → 🏕️ Cozy Cabin (419h) → '
+          + '🧘 Zen Retreat (837h) → ☁️ Cloud Nine (1,256h) → '
+          + '🌌 Aurora Dreamland (1,674h) → 🏛️ Hibernation Hall of Fame (2,093h)'
       }
     },
     {

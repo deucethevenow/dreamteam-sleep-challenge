@@ -7,23 +7,22 @@ import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinC
 // --- Constants & Seed Data ---
 const INITIAL_TEAMS = [
   { id: 1, name: "The Night Owls", color_hex: "from-indigo-400 to-purple-500", icon: "🦉" },
-  { id: 2, name: "The Dream Chasers", color_hex: "from-blue-400 to-cyan-400", icon: "✨" },
+  { id: 2, name: "The Dream Chasers", color_hex: "from-violet-400 to-pink-400", icon: "✨" },
 ];
 
 const INITIAL_USERS = [
-  // Team 1 - The Night Owls (5 members)
-  { id: 1, username: "Pam", slack_username: "pam", slack_user_id: "U05UC7E564F", team_id: 1, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  // Team 1 - The Night Owls (4 members)
   { id: 2, username: "Victoria", slack_username: "victoria newton", slack_user_id: "U06UWNKATU7", team_id: 1, avatar_emoji: "🌙", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 3, username: "Jack", slack_username: "jackshannon", slack_user_id: "U06FBCJUU", team_id: 1, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 4, username: "Francisco", slack_username: "francisco cazes", slack_user_id: "U09MF1GDBV4", team_id: 1, avatar_emoji: "🛏️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 9, username: "Andy Cooper", slack_username: "andy", slack_user_id: "U09JL7ML316", team_id: 1, avatar_emoji: "⭐", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 6, username: "Deuce", slack_username: "deuce", slack_user_id: "U06FDAS93", team_id: 1, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 8, username: "Arb", slack_username: "arb", slack_user_id: "UCHB3H37B", team_id: 1, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 
   // Team 2 - The Dream Chasers (5 members)
+  { id: 1, username: "Pam", slack_username: "pam", slack_user_id: "U05UC7E564F", team_id: 2, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 3, username: "Jack", slack_username: "jackshannon", slack_user_id: "U06FBCJUU", team_id: 2, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 5, username: "Claire", slack_username: "claire", slack_user_id: "U06P34GBSAC", team_id: 2, avatar_emoji: "✨", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 6, username: "Deuce", slack_username: "deuce", slack_user_id: "U06FDAS93", team_id: 2, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 7, username: "Courtney", slack_username: "courtney cook", slack_user_id: "U09NCCX1KMZ", team_id: 2, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 8, username: "Arb", slack_username: "arb", slack_user_id: "UCHB3H37B", team_id: 2, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 10, username: "Anderson Camargo", slack_username: "anderson", slack_user_id: "U023CK0NK63", team_id: 2, avatar_emoji: "🎯", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 9, username: "Andy Cooper", slack_username: "andy", slack_user_id: "U09JL7ML316", team_id: 2, avatar_emoji: "⭐", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 ];
 
 // --- Database Setup ---
@@ -801,7 +800,7 @@ app.get('/api/milestones/50-percent', async (req, res) => {
         WHERE date_logged >= '${CHALLENGE_START_STR}' AND date_logged <= '${CHALLENGE_END_STR}'
       `);
       const totalHours = parseFloat(progressRes.rows[0].total);
-      const threshold = 1162.5; // 50% of 2325 hours (10 people * 7.5 hrs * 31 days)
+      const threshold = 1046.25; // 50% of 2092.5 hours (9 people * 7.5 hrs * 31 days)
       const percentage = Math.min(100, (totalHours / threshold) * 100);
 
       res.json({
@@ -1461,6 +1460,62 @@ app.post('/api/december-reset', async (req, res) => {
     res.json({ success: true, message: "Challenge Reset Complete", details: results });
   } catch (err: any) {
     console.error("Challenge Reset Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// FULL DATABASE WIPE — Clears ALL data and re-seeds teams/users/prizes for a fresh challenge start.
+// Designed to be called by Cloud Scheduler at 12:01 AM MST on March 1st.
+app.post('/api/reset-challenge-full', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "Database not connected" });
+
+  // Simple confirmation key to prevent accidental triggers
+  const { confirm } = req.body || {};
+  if (confirm !== 'reset_march_2026') {
+    return res.status(400).json({ error: 'Missing or invalid confirmation key. Send { "confirm": "reset_march_2026" }' });
+  }
+
+  try {
+    console.log("=== FULL CHALLENGE RESET STARTING ===");
+    const results: string[] = [];
+
+    // Step 1: Count existing data for audit trail
+    const logCount = await pool.query('SELECT COUNT(*) as count FROM sleep_logs');
+    results.push(`Sleep logs before wipe: ${logCount.rows[0].count}`);
+
+    // Step 2: Truncate all data tables (order matters for foreign keys)
+    await pool.query('TRUNCATE prize_entries RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE daily_winners RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE milestone_events RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE sleep_logs RESTART IDENTITY CASCADE');
+    await pool.query('DELETE FROM users');
+    await pool.query('DELETE FROM prizes');
+    await pool.query('DELETE FROM teams');
+    results.push("All data tables cleared");
+
+    // Step 3: Reset sequences
+    await pool.query("ALTER SEQUENCE IF EXISTS sleep_logs_id_seq RESTART WITH 1");
+    await pool.query("ALTER SEQUENCE IF EXISTS daily_winners_id_seq RESTART WITH 1");
+    await pool.query("ALTER SEQUENCE IF EXISTS prize_entries_id_seq RESTART WITH 1");
+    await pool.query("ALTER SEQUENCE IF EXISTS milestone_events_id_seq RESTART WITH 1");
+    results.push("Sequences reset");
+
+    // Step 4: Re-seed teams, users, and prizes
+    await seedData();
+    results.push("Teams and users re-seeded (9 participants, 2 teams)");
+
+    // Step 5: Verification
+    const userCount = await pool.query('SELECT COUNT(*) as count FROM users');
+    const teamCount = await pool.query('SELECT COUNT(*) as count FROM teams');
+    const teamBreakdown = await pool.query('SELECT t.name, COUNT(u.id) as members FROM teams t LEFT JOIN users u ON t.id = u.team_id GROUP BY t.name ORDER BY t.name');
+    results.push(`Users seeded: ${userCount.rows[0].count}`);
+    results.push(`Teams seeded: ${teamCount.rows[0].count}`);
+    results.push(`Team breakdown: ${JSON.stringify(teamBreakdown.rows)}`);
+
+    console.log("=== FULL CHALLENGE RESET COMPLETE ===", results);
+    res.json({ success: true, message: "Full Challenge Reset Complete", timestamp: new Date().toISOString(), details: results });
+  } catch (err: any) {
+    console.error("Full Challenge Reset Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

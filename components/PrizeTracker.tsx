@@ -63,7 +63,7 @@ const PrizeTracker: React.FC = () => {
       );
 
       const totalHours = challengeLogs.reduce((sum: number, log: any) => sum + (parseFloat(log.sleep_hours) || 0), 0);
-      const GLOBAL_GOAL = 2325; // 10 users * 7.5 hours * 31 days
+      const GLOBAL_GOAL = 2092.5; // 9 users * 7.5 hours * 31 days
       const percentage = Math.min(100, (totalHours / GLOBAL_GOAL) * 100);
       setGlobalProgress(percentage);
     } catch (err) {

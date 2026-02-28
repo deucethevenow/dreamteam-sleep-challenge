@@ -6,10 +6,10 @@ export const DAYS_IN_MONTH = 31;
 
 export const CHALLENGE_START = '2026-03-01'; // Challenge start date
 export const CHALLENGE_END = '2026-03-31';   // Challenge end date
-export const PARTICIPANT_COUNT = 10;
+export const PARTICIPANT_COUNT = 9;
 
-// 10 Users * 7.5 hours * 31 Days = 2,325 hours
-export const GLOBAL_GOAL = 10 * DAILY_GOAL * DAYS_IN_MONTH;
+// 9 Users * 7.5 hours * 31 Days = 2,092.5 hours
+export const GLOBAL_GOAL = 9 * DAILY_GOAL * DAYS_IN_MONTH;
 
 // 7.5h * 31 days = 232.5 hours per person
 export const TEAM_AVG_GOAL = DAILY_GOAL * DAYS_IN_MONTH;
@@ -30,27 +30,28 @@ export const INITIAL_TEAMS: Team[] = [
 ];
 
 export const INITIAL_USERS = [
-  // Team 1
-  { id: 1, username: "Pam", team_id: 1, avatar_emoji: "🧘‍♀️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  // Team 1 - The Night Owls (4 members)
   { id: 2, username: "Victoria", team_id: 1, avatar_emoji: "🌙", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 3, username: "Jack", team_id: 1, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 4, username: "Francisco", team_id: 1, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  
-  // Team 2
-  { id: 5, username: "Claire", team_id: 2, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 6, username: "Deuce", team_id: 2, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 7, username: "Courtney", team_id: 2, avatar_emoji: "🛏️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 8, username: "Arb", team_id: 2, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 4, username: "Francisco", team_id: 1, avatar_emoji: "🛏️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 6, username: "Deuce", team_id: 1, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 8, username: "Arb", team_id: 1, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+
+  // Team 2 - The Dream Chasers (5 members)
+  { id: 1, username: "Pam", team_id: 2, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 3, username: "Jack", team_id: 2, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 5, username: "Claire", team_id: 2, avatar_emoji: "✨", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 7, username: "Courtney", team_id: 2, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 9, username: "Andy Cooper", team_id: 2, avatar_emoji: "⭐", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 ];
 
-// Sleep-themed journey milestones
+// Sleep-themed journey milestones (based on 9 participants * 7.5h * 31 days = 2,092.5h)
 export const MILESTONES = [
   { hours: 0, label: "Recess HQ (Wide Awake)" },
-  { hours: 465, label: "Cozy Cabin in the Woods" },       // 20%
-  { hours: 930, label: "Zen Meditation Retreat" },          // 40%
-  { hours: 1395, label: "Cloud Nine Sanctuary" },           // 60%
-  { hours: 1860, label: "Aurora Borealis Dreamland" },      // 80%
-  { hours: 2325, label: "Hibernation Hall of Fame" },       // 100%
+  { hours: 419, label: "Cozy Cabin in the Woods" },        // ~20%
+  { hours: 837, label: "Zen Meditation Retreat" },          // ~40%
+  { hours: 1256, label: "Cloud Nine Sanctuary" },           // ~60%
+  { hours: 1674, label: "Aurora Borealis Dreamland" },      // ~80%
+  { hours: 2093, label: "Hibernation Hall of Fame" },       // ~100%
 ];
 
 // Sleep conversion rates for fun stats
