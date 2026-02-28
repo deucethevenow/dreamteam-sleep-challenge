@@ -46,6 +46,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [remSleepMin, setRemSleepMin] = useState<string>('');
   const [lightSleepMin, setLightSleepMin] = useState<string>('');
   const [awakeMin, setAwakeMin] = useState<string>('');
+  const [sleepEfficiency, setSleepEfficiency] = useState<string>('');
+  const [sleepLatency, setSleepLatency] = useState<string>('');
   
   // Composite Score State
   const [compositeScore, setCompositeScore] = useState(0);
@@ -186,12 +188,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   };
 
   // Calculate sleep hours when times change
+  // If AI extracted actual sleep duration, use that instead of bedtime-to-wake calculation
   useEffect(() => {
     if (logType === 'sleep' && bedtime && wakeTime) {
-      const hours = calculateSleepHours(bedtime, wakeTime);
-      setCalculatedHours(hours);
+      if (extractedData?.totalSleepHours) {
+        setCalculatedHours(extractedData.totalSleepHours);
+      } else {
+        const hours = calculateSleepHours(bedtime, wakeTime);
+        setCalculatedHours(hours);
+      }
     }
-  }, [logType, bedtime, wakeTime]);
+  }, [logType, bedtime, wakeTime, extractedData]);
 
   // Handle AI Screenshot Analysis
   const handleScanScreenshots = async () => {
@@ -231,6 +238,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           setAwakeMin(result.data.awakeMin.toString());
         }
         
+        // If AI extracted actual sleep duration, use it instead of bedtime-to-wake calculation
+        if (result.data.totalSleepHours) {
+          setCalculatedHours(result.data.totalSleepHours);
+        }
+
+        // Auto-fill efficiency and latency if available
+        if (result.data.sleepEfficiency) {
+          // Store efficiency for metrics submission (calculated from actual sleep / time in bed)
+          setSleepEfficiency(result.data.sleepEfficiency.toString());
+        }
+        if (result.data.sleepLatencyMin) {
+          setSleepLatency(result.data.sleepLatencyMin.toString());
+        }
+
         // Show advanced metrics if we got stage data
         if (result.data.deepSleepMin || result.data.remSleepMin || result.data.sleepScore) {
           setShowAdvancedMetrics(true);
@@ -281,23 +302,26 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         }
 
         // Build metrics object if any advanced metrics provided
-        const metrics: SleepMetrics | undefined = (sleepScore || deepSleepMin || remSleepMin || lightSleepMin || awakeMin) ? {
+        const metrics: SleepMetrics | undefined = (sleepScore || deepSleepMin || remSleepMin || lightSleepMin || awakeMin || sleepEfficiency || sleepLatency) ? {
           sleep_score: sleepScore ? parseInt(sleepScore) : undefined,
           deep_sleep_min: deepSleepMin ? parseInt(deepSleepMin) : undefined,
           rem_sleep_min: remSleepMin ? parseInt(remSleepMin) : undefined,
           light_sleep_min: lightSleepMin ? parseInt(lightSleepMin) : undefined,
           awake_min: awakeMin ? parseInt(awakeMin) : undefined,
+          sleep_efficiency: sleepEfficiency ? parseFloat(sleepEfficiency) : undefined,
+          sleep_latency_min: sleepLatency ? parseInt(sleepLatency) : undefined,
         } : undefined;
 
         await db.logSleep(
-          user.id, 
-          bedtime, 
-          wakeTime, 
+          user.id,
+          bedtime,
+          wakeTime,
           qualityRating || undefined,
           screenshotUrl,
           notes || undefined,
           selectedDate,
-          metrics
+          metrics,
+          extractedData?.totalSleepHours || undefined
         );
 
         // Reset Form
@@ -311,6 +335,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         setRemSleepMin('');
         setLightSleepMin('');
         setAwakeMin('');
+        setSleepEfficiency('');
+        setSleepLatency('');
         setShowAdvancedMetrics(false);
         setLogType('sleep');
         setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));

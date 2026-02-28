@@ -1559,6 +1559,7 @@ app.post('/api/logs', async (req, res) => {
   const light_sleep_min = metrics?.light_sleep_min ?? null;
   const awake_min = metrics?.awake_min ?? null;
   const sleep_latency_min = metrics?.sleep_latency_min ?? null;
+  const sleep_efficiency = metrics?.sleep_efficiency ?? null;
 
   try {
     // 1. Get total company sleep hours BEFORE this log (challenge period only)
@@ -1572,12 +1573,12 @@ app.post('/api/logs', async (req, res) => {
     // 2. Insert the log and get the ID back
     const logResult = await pool.query(
       `INSERT INTO sleep_logs (
-        user_id, date_logged, bedtime, wake_time, sleep_hours, 
+        user_id, date_logged, bedtime, wake_time, sleep_hours,
         quality_rating, notes, screenshot_url,
-        sleep_score, deep_sleep_min, rem_sleep_min, light_sleep_min, awake_min, sleep_latency_min
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+        sleep_score, deep_sleep_min, rem_sleep_min, light_sleep_min, awake_min, sleep_latency_min, sleep_efficiency
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
       [user_id, date_logged, bedtime, wake_time, sleep_hours, quality_rating, notes, screenshot_url,
-       sleep_score, deep_sleep_min, rem_sleep_min, light_sleep_min, awake_min, sleep_latency_min]
+       sleep_score, deep_sleep_min, rem_sleep_min, light_sleep_min, awake_min, sleep_latency_min, sleep_efficiency]
     );
     const logId = logResult.rows[0].id;
 

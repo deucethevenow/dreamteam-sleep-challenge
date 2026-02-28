@@ -102,17 +102,18 @@ class DataService {
   // --- Actions ---
 
   async logSleep(
-    userId: number, 
-    bedtime: string, 
-    wakeTime: string, 
+    userId: number,
+    bedtime: string,
+    wakeTime: string,
     qualityRating?: number,
     screenshotUrl?: string,
     notes?: string,
     customDate?: string,
-    metrics?: SleepMetrics
+    metrics?: SleepMetrics,
+    sleepHoursOverride?: number
   ): Promise<void> {
     const dateStr = customDate || getMountainTimeDate();
-    const sleepHours = calculateSleepHours(bedtime, wakeTime);
+    const sleepHours = sleepHoursOverride || calculateSleepHours(bedtime, wakeTime);
 
     try {
       const res = await fetch(`${API_URL}/logs`, {
