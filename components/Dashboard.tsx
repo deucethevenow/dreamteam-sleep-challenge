@@ -272,10 +272,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   };
 
-  // Apply extracted data and close review
+  // Apply extracted data and save the sleep log
   const handleConfirmExtractedData = () => {
-    setShowReviewCard(false);
-    // Data is already in the form fields, user can now submit
+    handleLogSubmit();
   };
 
   // Discard extracted data and reset
@@ -1201,28 +1200,27 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                            </p>
                          )}
                          
-                         <p className="text-xs text-gray-600 mb-3 text-center">
-                           <Edit3 size={12} className="inline mr-1" />
-                           Data has been filled in the form below. Review and edit if needed.
-                         </p>
-                         
-                         <div className="flex gap-2">
+                         <div className="flex gap-2 mt-3">
                            <button
                              type="button"
+                             disabled={isSubmitting}
                              onClick={handleConfirmExtractedData}
-                             className="flex-1 bg-green-500 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-1 hover:bg-green-600 transition-colors"
+                             className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 hover:shadow-lg transition-all disabled:opacity-50"
                            >
-                             <CheckCircle size={14} />
-                             Looks Good
+                             <CheckCircle size={16} />
+                             {isSubmitting ? 'Saving...' : 'Save ' + calculatedHours.toFixed(1) + ' Hours'}
                            </button>
                            <button
                              type="button"
                              onClick={handleDiscardExtractedData}
-                             className="px-4 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium text-sm hover:bg-gray-300 transition-colors"
+                             className="px-4 bg-gray-200 text-gray-700 py-3 rounded-xl font-medium text-sm hover:bg-gray-300 transition-colors"
                            >
                              Clear
                            </button>
                          </div>
+                         <p className="text-[10px] text-gray-400 text-center mt-2">
+                           Scroll down to edit times or metrics before saving
+                         </p>
                        </div>
                      )}
 

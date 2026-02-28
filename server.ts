@@ -116,11 +116,13 @@ const seedData = async () => {
     );
   }
 
-  // Remove any users not in the seed list (e.g. manually-added test users)
+  // Remove any users not in the seed list and their related data
   const validIds = INITIAL_USERS.map(u => u.id);
+  await pool.query('DELETE FROM activity_logs WHERE NOT (user_id = ANY($1::int[]))', [validIds]);
+  await pool.query('DELETE FROM sleep_logs WHERE NOT (user_id = ANY($1::int[]))', [validIds]);
   const deleted = await pool.query('DELETE FROM users WHERE NOT (id = ANY($1::int[]))', [validIds]);
   if ((deleted.rowCount ?? 0) > 0) {
-    console.log("Removed " + deleted.rowCount + " user(s) not in seed list");
+    console.log("Removed " + deleted.rowCount + " extra user(s) not in seed list");
   }
 
   // Seed Prizes
