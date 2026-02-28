@@ -54,6 +54,15 @@ coverage
 # TypeScript cache
 *.tsbuildinfo
 
+# Stale transpiled JS files (break Vite module resolution)
+/server.js
+/constants.js
+/types.js
+/services/*.js
+
+# Session context (local only)
+context/
+
 # Misc
 *.pem
 .cache

@@ -1821,6 +1821,89 @@ export const sendAwardsCeremony = async (
     }
   }
 
+  // --- AI Sleep Insights Section ---
+  try {
+    // Determine date range for this period
+    const challengeStart = new Date(CHALLENGE_START);
+    let startDate: string, endDate: string;
+    if (period === 'final') {
+      startDate = CHALLENGE_START;
+      endDate = CHALLENGE_END;
+    } else {
+      const weekNum = parseInt(period.replace('week', ''));
+      const start = new Date(challengeStart);
+      start.setDate(start.getDate() + (weekNum - 1) * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      startDate = start.toISOString().split('T')[0];
+      endDate = end.toISOString().split('T')[0];
+    }
+
+    // Get top 3 users by log count for AI insights
+    const insightUsersRes = await pool.query(`
+      SELECT u.id, u.username, u.avatar_emoji,
+             COUNT(sl.id) as log_count,
+             AVG(sl.sleep_hours) as avg_hours,
+             STDDEV(CASE
+               WHEN sl.bedtime IS NOT NULL AND sl.bedtime != '00:00' THEN
+                 CASE WHEN CAST(SPLIT_PART(sl.bedtime, ':', 1) AS INTEGER) < 6
+                   THEN (CAST(SPLIT_PART(sl.bedtime, ':', 1) AS INTEGER) + 24) * 60 + CAST(SPLIT_PART(sl.bedtime, ':', 2) AS INTEGER)
+                   ELSE CAST(SPLIT_PART(sl.bedtime, ':', 1) AS INTEGER) * 60 + CAST(SPLIT_PART(sl.bedtime, ':', 2) AS INTEGER)
+                 END
+               END) as bed_stddev
+      FROM users u
+      JOIN sleep_logs sl ON u.id = sl.user_id
+      WHERE sl.date_logged >= $1 AND sl.date_logged <= $2 AND sl.bonus_type IS NULL
+      GROUP BY u.id, u.username, u.avatar_emoji
+      HAVING COUNT(sl.id) >= 3
+      ORDER BY COUNT(sl.id) DESC
+      LIMIT 3
+    `, [startDate, endDate]);
+
+    if (insightUsersRes.rows.length > 0) {
+      const insightLines: string[] = [];
+
+      for (const row of insightUsersRes.rows) {
+        const avgH = parseFloat(row.avg_hours);
+        const bedStddev = row.bed_stddev ? Math.round(parseFloat(row.bed_stddev)) : null;
+
+        // Generate a quick one-liner insight
+        let insight = '';
+        if (avgH >= 8 && bedStddev !== null && bedStddev <= 30) {
+          insight = row.avatar_emoji + ' *' + row.username + '* averaged ' + avgH.toFixed(1) + 'h with rock-solid consistency (\u00B1' + bedStddev + 'min) \u2014 keep that rhythm going!';
+        } else if (bedStddev !== null && bedStddev > 60) {
+          insight = row.avatar_emoji + ' *' + row.username + "* bedtime shifted \u00B1" + bedStddev + 'min this week \u2014 try staying within 30 min for better energy.';
+        } else if (avgH < 7) {
+          insight = row.avatar_emoji + ' *' + row.username + '* averaged ' + avgH.toFixed(1) + 'h \u2014 aiming for 7.5h could boost focus and mood significantly!';
+        } else {
+          insight = row.avatar_emoji + ' *' + row.username + '* logged ' + row.log_count + ' nights averaging ' + avgH.toFixed(1) + 'h \u2014 solid consistency pays off!';
+        }
+        insightLines.push(insight);
+      }
+
+      blocks.push(
+        { type: 'divider' },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: "*\uD83E\uDDE0 AI SLEEP INSIGHTS*\n\n_Here's what your sleep consultant noticed this week:_"
+          }
+        }
+      );
+
+      for (const line of insightLines) {
+        blocks.push({
+          type: 'section',
+          text: { type: 'mrkdwn', text: line }
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Error generating AI insights for awards:", err);
+    // Non-fatal: continue without insights
+  }
+
   blocks.push(
     { type: 'divider' },
     {

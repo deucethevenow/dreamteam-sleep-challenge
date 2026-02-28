@@ -301,6 +301,116 @@ export const getDailyFunFact = async (todayHours: number, totalHours: number, le
   }
 };
 
+// --- Personalized AI Sleep Analysis ---
+
+export interface SleepAnalysisInput {
+  username: string;
+  weekLogs: {
+    date: string;
+    hours: number;
+    bedtime: string;
+    wakeTime: string;
+    quality?: number;
+    sleepScore?: number;
+    deepSleepMin?: number;
+    remSleepMin?: number;
+    sleepEfficiency?: number;
+  }[];
+  avgHours: number;
+  consistencyVariation: number; // minutes
+  compositeScore: number;
+  previousWeekAvgHours?: number;
+}
+
+export interface SleepAnalysisResult {
+  summary: string;
+  grade: string;
+  strengths: string[];
+  improvements: string[];
+  sleepTip: string;
+}
+
+export const getPersonalizedSleepAnalysis = async (
+  input: SleepAnalysisInput
+): Promise<SleepAnalysisResult> => {
+  const fallback: SleepAnalysisResult = {
+    summary: "Keep logging to get personalized insights! We need at least a few days of data.",
+    grade: "?",
+    strengths: ["You're participating in the sleep challenge!"],
+    improvements: ["Log more nights to unlock detailed analysis"],
+    sleepTip: "Consistency is the #1 predictor of sleep quality. Try to keep the same bedtime every night."
+  };
+
+  if (!ai || input.weekLogs.length < 2) {
+    return fallback;
+  }
+
+  try {
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    // Build data summary for prompt
+    const logSummary = input.weekLogs.map(l => {
+      let line = l.date + ": " + l.hours.toFixed(1) + "h, bed " + l.bedtime + ", wake " + l.wakeTime;
+      if (l.quality) line += ", quality " + l.quality + "/5";
+      if (l.sleepScore) line += ", score " + l.sleepScore;
+      if (l.deepSleepMin) line += ", deep " + l.deepSleepMin + "min";
+      if (l.remSleepMin) line += ", REM " + l.remSleepMin + "min";
+      if (l.sleepEfficiency) line += ", efficiency " + l.sleepEfficiency + "%";
+      return line;
+    }).join("\n");
+
+    const trendNote = input.previousWeekAvgHours
+      ? "Previous week average: " + input.previousWeekAvgHours.toFixed(1) + "h/night. " +
+        (input.avgHours > input.previousWeekAvgHours ? "Trend: IMPROVING" : "Trend: DECLINING")
+      : "No previous week data for comparison.";
+
+    const prompt = "You are a sleep science consultant analyzing " + input.username + "'s sleep data for the past week. " +
+      "Be warm, specific, and actionable. Reference their actual numbers.\n\n" +
+      "SLEEP DATA:\n" + logSummary + "\n\n" +
+      "SUMMARY STATS:\n" +
+      "- Average: " + input.avgHours.toFixed(1) + "h/night\n" +
+      "- Bedtime consistency: ±" + Math.round(input.consistencyVariation) + " min variation\n" +
+      "- Composite sleep score: " + input.compositeScore + "/100\n" +
+      "- " + trendNote + "\n\n" +
+      "Analyze:\n" +
+      "1. DURATION - Are they hitting 7-8.5h? Trend improving or declining?\n" +
+      "2. CONSISTENCY - How variable are bed/wake times? Impact on circadian rhythm.\n" +
+      "3. QUALITY SIGNALS - If wearable data present: efficiency, deep sleep %, REM %.\n" +
+      "4. PATTERNS - Weekend vs weekday differences? Late nights? Early wake-ups?\n\n" +
+      "Return ONLY valid JSON (no markdown, no explanation):\n" +
+      '{\n' +
+      '  "summary": "1-2 sentence overall assessment",\n' +
+      '  "grade": "A/B/C/D/F",\n' +
+      '  "strengths": ["specific things they are doing well"],\n' +
+      '  "improvements": ["specific, actionable recommendations"],\n' +
+      '  "sleepTip": "One personalized science-backed tip for this person"\n' +
+      '}';
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text().trim();
+
+    // Clean markdown code blocks
+    let cleaned = text;
+    if (text.startsWith('```')) {
+      cleaned = text.replace(/```json?\n?/g, '').replace(/```\n?$/g, '').trim();
+    }
+
+    const parsed: SleepAnalysisResult = JSON.parse(cleaned);
+
+    // Validate required fields
+    if (!parsed.summary || !parsed.grade || !parsed.strengths || !parsed.improvements || !parsed.sleepTip) {
+      console.warn("Gemini sleep analysis missing fields, using fallback");
+      return fallback;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error("Gemini Sleep Analysis Error:", error);
+    return fallback;
+  }
+};
+
 export const getMorningMotivation = async (winnerName: string, winnerHours: number, totalWins: number): Promise<string> => {
   if (!ai) {
     // Fallback motivations

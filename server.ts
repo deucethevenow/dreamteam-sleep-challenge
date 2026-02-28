@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import cors from 'cors';
 import path from 'path';
 import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinCount, previewMorningRecap, drawWeeklyPrizeWinner, drawGrandPrizeWinner, announceGrandPrizeWinner, postToSlack, checkAndAnnounceMilestone, sendWeeklyPrizeQualificationCelebration, sendGrandPrizeQualificationCelebration, gatherChallengeStats, sendGrandPrizeCountdownPost, sendEpicFinaleAnnouncement, sendAwardsCeremony, sendChallengeKickoff } from './services/slackService';
+import { getPersonalizedSleepAnalysis, SleepAnalysisInput, SleepAnalysisResult } from './services/geminiService';
 
 // --- Constants & Seed Data ---
 const INITIAL_TEAMS = [
@@ -1776,6 +1777,135 @@ app.delete('/api/logs/:id', async (req, res) => {
   } catch (err: any) {
     console.error("Delete Log Error:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- AI Sleep Analysis ---
+
+// Simple in-memory cache: key = "userId-weekNum", value = { result, timestamp }
+const aiAnalysisCache = new Map<string, { result: SleepAnalysisResult; timestamp: number }>();
+const AI_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+app.get('/api/ai/sleep-analysis/:userId', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "Database not connected" });
+
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
+
+  try {
+    // Get user info
+    const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    const user = userRes.rows[0];
+
+    // Determine current week date range
+    const currentWeek = getCurrentWeekServer();
+    const weekStart = getWeekStartDateServer(currentWeek);
+    const weekEnd = getWeekEndDateServer(currentWeek);
+
+    // Check cache
+    const cacheKey = userId + "-" + currentWeek;
+    const cached = aiAnalysisCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < AI_CACHE_TTL_MS) {
+      return res.json({ cached: true, week: currentWeek, analysis: cached.result });
+    }
+    // Evict expired entry
+    if (cached) aiAnalysisCache.delete(cacheKey);
+
+    // Fetch user's logs for this week
+    const logsRes = await pool.query(
+      'SELECT * FROM sleep_logs WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3 AND bonus_type IS NULL ORDER BY date_logged ASC',
+      [userId, weekStart, weekEnd]
+    );
+    const logs = logsRes.rows.map((r: any) => parseNumericFields(r, NUMERIC_LOG_FIELDS));
+
+    if (logs.length < 2) {
+      return res.json({
+        cached: false,
+        week: currentWeek,
+        analysis: {
+          summary: "Log at least 2 nights of sleep this week to get personalized AI analysis!",
+          grade: "?",
+          strengths: ["You're participating in the sleep challenge!"],
+          improvements: ["Keep logging to unlock detailed insights"],
+          sleepTip: "Consistency is the #1 predictor of sleep quality. Try to keep the same bedtime every night."
+        }
+      });
+    }
+
+    // Compute stats
+    const weekLogs = logs.map((l: any) => ({
+      date: l.date_logged,
+      hours: l.sleep_hours,
+      bedtime: l.bedtime || "00:00",
+      wakeTime: l.wake_time || "00:00",
+      quality: l.quality_rating || undefined,
+      sleepScore: l.sleep_score || undefined,
+      deepSleepMin: l.deep_sleep_min || undefined,
+      remSleepMin: l.rem_sleep_min || undefined,
+      sleepEfficiency: l.sleep_efficiency || undefined,
+    }));
+
+    const avgHours = weekLogs.reduce((sum: number, l: any) => sum + l.hours, 0) / weekLogs.length;
+
+    // Compute consistency (bedtime stddev in minutes)
+    const toMin = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h < 6 ? (h + 24) * 60 + m : h * 60 + m;
+    };
+    const bedMins = weekLogs
+      .filter((l: any) => l.bedtime && l.bedtime !== '00:00')
+      .map((l: any) => toMin(l.bedtime));
+    let consistencyVariation = 45; // default
+    if (bedMins.length >= 2) {
+      const mean = bedMins.reduce((a: number, b: number) => a + b, 0) / bedMins.length;
+      consistencyVariation = Math.sqrt(
+        bedMins.map((v: number) => Math.pow(v - mean, 2)).reduce((a: number, b: number) => a + b, 0) / bedMins.length
+      );
+    }
+
+    // Composite score (simple: duration 60% + consistency 40% without wearable)
+    const durationScore = avgHours >= 7 && avgHours <= 8.5 ? 100 :
+      avgHours < 6 ? 0 :
+      avgHours < 7 ? Math.round(((avgHours - 6) / 1) * 100) :
+      avgHours <= 9 ? Math.round(100 - ((avgHours - 8.5) / 0.5) * 30) : 70;
+    const consistencyScore = consistencyVariation <= 30 ? 100 :
+      consistencyVariation <= 60 ? 70 :
+      consistencyVariation <= 90 ? 40 : 0;
+    const compositeScore = Math.round(durationScore * 0.6 + consistencyScore * 0.4);
+
+    // Previous week avg for trend comparison
+    let previousWeekAvgHours: number | undefined;
+    if (currentWeek > 1) {
+      const prevStart = getWeekStartDateServer(currentWeek - 1);
+      const prevEnd = getWeekEndDateServer(currentWeek - 1);
+      const prevRes = await pool.query(
+        'SELECT sleep_hours FROM sleep_logs WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3 AND bonus_type IS NULL',
+        [userId, prevStart, prevEnd]
+      );
+      if (prevRes.rows.length > 0) {
+        previousWeekAvgHours = prevRes.rows.reduce((sum: number, r: any) => sum + parseFloat(r.sleep_hours), 0) / prevRes.rows.length;
+      }
+    }
+
+    const input: SleepAnalysisInput = {
+      username: user.username,
+      weekLogs,
+      avgHours,
+      consistencyVariation: Math.round(consistencyVariation),
+      compositeScore,
+      previousWeekAvgHours,
+    };
+
+    const analysis = await getPersonalizedSleepAnalysis(input);
+
+    // Cache result
+    aiAnalysisCache.set(cacheKey, { result: analysis, timestamp: Date.now() });
+
+    res.json({ cached: false, week: currentWeek, analysis });
+  } catch (err: any) {
+    console.error("AI Sleep Analysis Error:", err);
+    res.status(500).json({ error: "Failed to generate sleep analysis. Please try again later." });
   }
 });
 
