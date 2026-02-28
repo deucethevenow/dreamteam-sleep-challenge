@@ -853,8 +853,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       {/* LOG SLEEP MODAL */}
       {showLogModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 pb-24 md:pb-6 shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Log Sleep</h2>
               <button onClick={() => setShowLogModal(false)} className="text-gray-400 hover:text-gray-600">Close</button>

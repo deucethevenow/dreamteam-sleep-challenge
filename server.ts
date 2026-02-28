@@ -61,7 +61,7 @@ if (process.env.DATABASE_URL) {
 
 const app = express();
 app.use(cors() as any);
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Screenshots are sent as base64 data URLs
 app.use(express.urlencoded({ extended: true })); // For Slack slash commands (form-encoded data)
 
 // PostgreSQL NUMERIC/DECIMAL columns return as strings via the pg driver.
