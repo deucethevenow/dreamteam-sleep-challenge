@@ -1824,11 +1824,9 @@ app.get('/api/ai/sleep-analysis/:userId', async (req, res) => {
         cached: false,
         week: currentWeek,
         analysis: {
-          summary: "Log at least 2 nights of sleep this week to get personalized AI analysis!",
-          grade: "?",
-          strengths: ["You're participating in the sleep challenge!"],
-          improvements: ["Keep logging to unlock detailed insights"],
-          sleepTip: "Consistency is the #1 predictor of sleep quality. Try to keep the same bedtime every night."
+          summary: "Log at least 2 nights of sleep this week to unlock your personalized sleep briefing!",
+          highlights: [{ metric: "Getting Started", detail: "We need a few more nights of data to spot patterns and give you useful insights." }],
+          tip: "Consistency is the #1 predictor of sleep quality — try keeping the same bedtime within 30 minutes every night."
         }
       });
     }

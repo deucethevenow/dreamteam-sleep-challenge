@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { db } from '../services/dataService';
 import { calculateCompositeScore, calculateConsistencyVariation } from '../constants';
-import { TrendingUp, TrendingDown, BarChart3, Sparkles, CheckCircle, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, Moon } from 'lucide-react';
 
 interface SleepInsightsProps {
   user: User;
@@ -11,7 +11,7 @@ interface SleepInsightsProps {
 const SleepInsights: React.FC<SleepInsightsProps> = ({ user }) => {
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<{
-    summary: string; grade: string; strengths: string[]; improvements: string[]; sleepTip: string;
+    summary: string; highlights: { metric: string; detail: string }[]; tip: string;
   } | null>(null);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [aiError, setAiError] = useState(false);
@@ -261,28 +261,16 @@ const SleepInsights: React.FC<SleepInsightsProps> = ({ user }) => {
         );
       })()}
 
-      {/* --- AI Analysis Card --- */}
+      {/* --- AI Sleep Briefing --- */}
       <div className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-2xl border border-violet-200 p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-bold text-violet-700 flex items-center">
-            <Sparkles size={16} className="mr-2" />
-            AI Sleep Consultant
-          </h4>
-          {aiAnalysis && (
-            <span className={"text-xs px-2 py-0.5 rounded-full font-bold " + (
-              aiAnalysis.grade === 'A' ? 'bg-emerald-100 text-emerald-700' :
-              aiAnalysis.grade === 'B' ? 'bg-blue-100 text-blue-700' :
-              aiAnalysis.grade === 'C' ? 'bg-amber-100 text-amber-700' :
-              'bg-red-100 text-red-700'
-            )}>
-              Grade: {aiAnalysis.grade}
-            </span>
-          )}
+        <div className="flex items-center gap-2 mb-3">
+          <Moon size={16} className="text-violet-500" />
+          <h4 className="text-sm font-bold text-violet-700">Sleep Briefing</h4>
         </div>
 
         {!aiAnalysis && !isLoadingAI && (
           <div className="text-center py-4">
-            <p className="text-xs text-gray-500 mb-3">Get personalized insights from your AI sleep consultant based on this week's data.</p>
+            <p className="text-xs text-gray-500 mb-3">Get a personalized sleep briefing based on this week's data.</p>
             <button
               onClick={async () => {
                 setIsLoadingAI(true);
@@ -305,10 +293,10 @@ const SleepInsights: React.FC<SleepInsightsProps> = ({ user }) => {
               className="bg-gradient-to-r from-violet-500 to-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:shadow-lg transition-all flex items-center gap-2 mx-auto"
             >
               <Sparkles size={14} />
-              Get AI Analysis
+              Get Sleep Briefing
             </button>
             {aiError && (
-              <p className="text-xs text-red-500 mt-2">Analysis unavailable right now. Try again later.</p>
+              <p className="text-xs text-red-500 mt-2">Briefing unavailable right now. Try again later.</p>
             )}
           </div>
         )}
@@ -322,39 +310,22 @@ const SleepInsights: React.FC<SleepInsightsProps> = ({ user }) => {
 
         {aiAnalysis && !isLoadingAI && (
           <div className="space-y-3">
-            <p className="text-sm text-gray-700">{aiAnalysis.summary}</p>
+            <p className="text-sm text-gray-700 leading-relaxed">{aiAnalysis.summary}</p>
 
-            {aiAnalysis.strengths.length > 0 && (
-              <div>
-                <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Strengths</p>
-                <ul className="space-y-1">
-                  {aiAnalysis.strengths.map((s, i) => (
-                    <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
-                      <CheckCircle size={12} className="text-emerald-500 flex-shrink-0 mt-0.5" />
-                      {s}
-                    </li>
-                  ))}
-                </ul>
+            {aiAnalysis.highlights && aiAnalysis.highlights.length > 0 && (
+              <div className="space-y-2">
+                {aiAnalysis.highlights.map((h, i) => (
+                  <div key={i} className="bg-white/70 rounded-lg px-3 py-2 border border-violet-100">
+                    <span className="text-[10px] font-bold text-violet-600 uppercase">{h.metric}</span>
+                    <p className="text-xs text-gray-600 mt-0.5">{h.detail}</p>
+                  </div>
+                ))}
               </div>
             )}
 
-            {aiAnalysis.improvements.length > 0 && (
-              <div>
-                <p className="text-[10px] font-bold text-amber-600 uppercase mb-1">Improvements</p>
-                <ul className="space-y-1">
-                  {aiAnalysis.improvements.map((s, i) => (
-                    <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
-                      <TrendingUp size={12} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                      {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="bg-white rounded-lg p-3 border border-violet-100">
-              <p className="text-[10px] font-bold text-violet-600 uppercase mb-1">Personalized Tip</p>
-              <p className="text-xs text-gray-700">{aiAnalysis.sleepTip}</p>
+            <div className="bg-white rounded-lg p-3 border border-indigo-100">
+              <p className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Tip</p>
+              <p className="text-xs text-gray-700">{aiAnalysis.tip}</p>
             </div>
           </div>
         )}

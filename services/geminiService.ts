@@ -322,21 +322,17 @@ export interface SleepAnalysisInput {
 
 export interface SleepAnalysisResult {
   summary: string;
-  grade: string;
-  strengths: string[];
-  improvements: string[];
-  sleepTip: string;
+  highlights: { metric: string; detail: string }[];
+  tip: string;
 }
 
 export const getPersonalizedSleepAnalysis = async (
   input: SleepAnalysisInput
 ): Promise<SleepAnalysisResult> => {
   const fallback: SleepAnalysisResult = {
-    summary: "Keep logging to get personalized insights! We need at least a few days of data.",
-    grade: "?",
-    strengths: ["You're participating in the sleep challenge!"],
-    improvements: ["Log more nights to unlock detailed analysis"],
-    sleepTip: "Consistency is the #1 predictor of sleep quality. Try to keep the same bedtime every night."
+    summary: "Keep logging to unlock your personalized sleep briefing! We need at least a few nights of data to spot patterns.",
+    highlights: [{ metric: "Getting Started", detail: "Log a few more nights and we'll analyze your sleep patterns, trends, and give you personalized tips." }],
+    tip: "Consistency is the #1 predictor of sleep quality — try keeping the same bedtime within 30 minutes every night."
   };
 
   if (!ai || input.weekLogs.length < 2) {
@@ -362,32 +358,32 @@ export const getPersonalizedSleepAnalysis = async (
         (input.avgHours > input.previousWeekAvgHours ? "Trend: IMPROVING" : "Trend: DECLINING")
       : "No previous week data for comparison.";
 
-    const prompt = "You are a blunt, practical sleep coach analyzing " + input.username + "'s sleep data. " +
-      "You give REAL advice — specific behaviors to change, not vague goals.\n\n" +
+    const prompt = "You are a friendly sleep analyst writing a brief morning-style sleep briefing for " + input.username + ". " +
+      "Think Eight Sleep morning messages — warm, data-driven, insightful. NOT a report card or lecture.\n\n" +
       "SLEEP DATA:\n" + logSummary + "\n\n" +
       "SUMMARY STATS:\n" +
       "- Average: " + input.avgHours.toFixed(1) + "h/night\n" +
       "- Bedtime consistency: ±" + Math.round(input.consistencyVariation) + " min variation\n" +
       "- Composite sleep score: " + input.compositeScore + "/100\n" +
       "- " + trendNote + "\n\n" +
-      "CRITICAL RULES FOR RECOMMENDATIONS:\n" +
-      "- NEVER say 'increase sleep duration' or 'improve efficiency' — those are GOALS, not advice.\n" +
-      "- ALWAYS give a concrete BEHAVIOR: what to do, when to do it, and how.\n" +
-      "- BAD: 'Prioritize increasing sleep duration to 7 hours' (this just restates the problem)\n" +
-      "- GOOD: 'Set a phone alarm at 10:15 PM labeled GO TO BED — you need to be lights-out by 10:30 to hit 7 hours by your 5:45 AM wake time'\n" +
-      "- BAD: 'Work on increasing sleep efficiency to 90%'\n" +
-      "- GOOD: 'Your 80% efficiency means ~1h awake in bed. Try a wind-down routine: dim lights at 9:30 PM, no screens after 10 PM, and read a physical book until you feel drowsy — only then get in bed'\n" +
-      "- BAD: 'Aim to increase deep sleep duration'\n" +
-      "- GOOD: 'Your deep sleep is low (50 min). Cut caffeine after 12 PM and do 20 min of exercise before 6 PM — both are proven to boost deep sleep'\n" +
-      "- Reference THEIR specific numbers (bedtime, wake time, hours) in every recommendation.\n" +
-      "- Each recommendation should be 1-2 specific sentences with a clear action.\n\n" +
+      "STYLE GUIDE:\n" +
+      "- Write like a smart friend who understands sleep science, not a doctor or teacher.\n" +
+      "- Reference their actual numbers — comparisons between nights, changes, and what's notable.\n" +
+      "- Explain WHY things matter: 'Deep sleep up to 21% — that's your body doing physical repair.'\n" +
+      "- Keep tips specific and behavioral: 'Try dimming lights at 9:30 PM' not 'improve your sleep hygiene.'\n" +
+      "- Tone: warm, concise, informative. Like a text from a knowledgeable friend.\n" +
+      "- 2-3 highlights max. Don't list everything — pick what's most interesting or notable.\n\n" +
+      "EXAMPLE of the tone and style we want (from Eight Sleep):\n" +
+      "'Last night's sleep score held at 83 with deep sleep up to 21%, aiding physical repair. " +
+      "REM dropped to 17%, below your 24% baseline, while sleep interruptions increased. " +
+      "This unusual split may affect mental restoration tonight.'\n\n" +
       "Return ONLY valid JSON (no markdown, no explanation):\n" +
       '{\n' +
-      '  "summary": "1-2 sentence blunt assessment referencing their actual numbers",\n' +
-      '  "grade": "A/B/C/D/F",\n' +
-      '  "strengths": ["specific things they are doing well, with their numbers"],\n' +
-      '  "improvements": ["concrete behavioral change with specific times/actions — NOT goals"],\n' +
-      '  "sleepTip": "One very specific, personalized tip tied to their data — include exact times or amounts"\n' +
+      '  "summary": "2-3 sentence briefing analyzing their metrics — what happened, why it matters, what to watch. Reference specific numbers and compare between nights if possible.",\n' +
+      '  "highlights": [\n' +
+      '    {"metric": "short label like Deep Sleep or Duration", "detail": "what happened with this metric and why it matters — 1 sentence"}\n' +
+      '  ],\n' +
+      '  "tip": "One specific, behavioral suggestion tied to their data. Not a goal — an action. Example: Try reading instead of screens after 10 PM to help with that 16-min sleep latency."\n' +
       '}';
 
     const result = await model.generateContent(prompt);
@@ -403,7 +399,7 @@ export const getPersonalizedSleepAnalysis = async (
     const parsed: SleepAnalysisResult = JSON.parse(cleaned);
 
     // Validate required fields
-    if (!parsed.summary || !parsed.grade || !parsed.strengths || !parsed.improvements || !parsed.sleepTip) {
+    if (!parsed.summary || !parsed.highlights || !parsed.tip) {
       console.warn("Gemini sleep analysis missing fields, using fallback");
       return fallback;
     }
