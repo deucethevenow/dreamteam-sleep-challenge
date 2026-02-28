@@ -362,26 +362,32 @@ export const getPersonalizedSleepAnalysis = async (
         (input.avgHours > input.previousWeekAvgHours ? "Trend: IMPROVING" : "Trend: DECLINING")
       : "No previous week data for comparison.";
 
-    const prompt = "You are a sleep science consultant analyzing " + input.username + "'s sleep data for the past week. " +
-      "Be warm, specific, and actionable. Reference their actual numbers.\n\n" +
+    const prompt = "You are a blunt, practical sleep coach analyzing " + input.username + "'s sleep data. " +
+      "You give REAL advice — specific behaviors to change, not vague goals.\n\n" +
       "SLEEP DATA:\n" + logSummary + "\n\n" +
       "SUMMARY STATS:\n" +
       "- Average: " + input.avgHours.toFixed(1) + "h/night\n" +
       "- Bedtime consistency: ±" + Math.round(input.consistencyVariation) + " min variation\n" +
       "- Composite sleep score: " + input.compositeScore + "/100\n" +
       "- " + trendNote + "\n\n" +
-      "Analyze:\n" +
-      "1. DURATION - Are they hitting 7-8.5h? Trend improving or declining?\n" +
-      "2. CONSISTENCY - How variable are bed/wake times? Impact on circadian rhythm.\n" +
-      "3. QUALITY SIGNALS - If wearable data present: efficiency, deep sleep %, REM %.\n" +
-      "4. PATTERNS - Weekend vs weekday differences? Late nights? Early wake-ups?\n\n" +
+      "CRITICAL RULES FOR RECOMMENDATIONS:\n" +
+      "- NEVER say 'increase sleep duration' or 'improve efficiency' — those are GOALS, not advice.\n" +
+      "- ALWAYS give a concrete BEHAVIOR: what to do, when to do it, and how.\n" +
+      "- BAD: 'Prioritize increasing sleep duration to 7 hours' (this just restates the problem)\n" +
+      "- GOOD: 'Set a phone alarm at 10:15 PM labeled GO TO BED — you need to be lights-out by 10:30 to hit 7 hours by your 5:45 AM wake time'\n" +
+      "- BAD: 'Work on increasing sleep efficiency to 90%'\n" +
+      "- GOOD: 'Your 80% efficiency means ~1h awake in bed. Try a wind-down routine: dim lights at 9:30 PM, no screens after 10 PM, and read a physical book until you feel drowsy — only then get in bed'\n" +
+      "- BAD: 'Aim to increase deep sleep duration'\n" +
+      "- GOOD: 'Your deep sleep is low (50 min). Cut caffeine after 12 PM and do 20 min of exercise before 6 PM — both are proven to boost deep sleep'\n" +
+      "- Reference THEIR specific numbers (bedtime, wake time, hours) in every recommendation.\n" +
+      "- Each recommendation should be 1-2 specific sentences with a clear action.\n\n" +
       "Return ONLY valid JSON (no markdown, no explanation):\n" +
       '{\n' +
-      '  "summary": "1-2 sentence overall assessment",\n' +
+      '  "summary": "1-2 sentence blunt assessment referencing their actual numbers",\n' +
       '  "grade": "A/B/C/D/F",\n' +
-      '  "strengths": ["specific things they are doing well"],\n' +
-      '  "improvements": ["specific, actionable recommendations"],\n' +
-      '  "sleepTip": "One personalized science-backed tip for this person"\n' +
+      '  "strengths": ["specific things they are doing well, with their numbers"],\n' +
+      '  "improvements": ["concrete behavioral change with specific times/actions — NOT goals"],\n' +
+      '  "sleepTip": "One very specific, personalized tip tied to their data — include exact times or amounts"\n' +
       '}';
 
     const result = await model.generateContent(prompt);
