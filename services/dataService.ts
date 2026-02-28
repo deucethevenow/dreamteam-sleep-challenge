@@ -1,4 +1,4 @@
-import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics, BonusType } from '../types';
+import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics } from '../types';
 import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, PARTICIPANT_COUNT, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
 
 // API BASE URL - In Replit/Production this is usually relative or configured
@@ -153,48 +153,6 @@ class DataService {
       const uIndex = this.mockUsers.findIndex(u => u.id === userId);
       if (uIndex > -1) {
         this.mockUsers[uIndex].banked_hours += sleepHours;
-      }
-    }
-  }
-
-  // Log bonus activity (gives hour credits)
-  async logBonus(userId: number, hours: number, bonusType: BonusType, customDate?: string): Promise<void> {
-    const dateStr = customDate || getMountainTimeDate();
-
-    try {
-      const res = await fetch(`${API_URL}/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          date_logged: dateStr,
-          bedtime: '00:00',
-          wake_time: '00:00',
-          sleep_hours: hours,
-          bonus_type: bonusType,
-          notes: `Bonus: ${bonusType}`
-        })
-      });
-      if (!res.ok) throw new Error("Failed to save bonus to server");
-      this.isOnline = true;
-    } catch (err) {
-      console.warn("Backend save failed. Saving locally for session.", err);
-      this.isOnline = false;
-      const newLog: SleepLog = {
-        id: Math.random(),
-        user_id: userId,
-        date_logged: dateStr,
-        bedtime: '00:00',
-        wake_time: '00:00',
-        sleep_hours: hours,
-        bonus_type: bonusType,
-        notes: `Bonus: ${bonusType}`
-      };
-      this.mockLogs.push(newLog);
-      
-      const uIndex = this.mockUsers.findIndex(u => u.id === userId);
-      if (uIndex > -1) {
-        this.mockUsers[uIndex].banked_hours += hours;
       }
     }
   }

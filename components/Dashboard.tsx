@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { User, Badge, SleepMetrics, BonusType } from '../types';
+import { User, Badge, SleepMetrics } from '../types';
 import { db } from '../services/dataService';
 import { getSleepTip, analyzeSleepScreenshots, ExtractedSleepData } from '../services/geminiService';
-import { DAILY_GOAL, BONUS_ACTIVITIES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getSleepAura, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
-import { Moon, Star, Brain, Ticket, Medal, CalendarClock, CheckCircle2, Crown, Users, Clock, Zap, Coffee, BookOpen, MonitorOff, Thermometer, Bell, WifiOff, RefreshCw, Calendar, Bed, Sun, ChevronDown, ChevronUp, Activity, Upload, Sparkles, AlertCircle, CheckCircle, Edit3, Loader2, Camera } from 'lucide-react';
+import { DAILY_GOAL, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, calculateMetrics, getFunInsight, getDetailedImpact, getTodaysQuest, getSleepAura, calculateSleepHours, calculateCompositeScore, calculateConsistencyVariation } from '../constants';
+import { Moon, Star, Brain, Ticket, Medal, CalendarClock, CheckCircle2, Crown, Users, Clock, Zap, Bell, WifiOff, RefreshCw, Calendar, Bed, Sun, ChevronDown, ChevronUp, Activity, Upload, Sparkles, AlertCircle, CheckCircle, Edit3, Loader2, Camera } from 'lucide-react';
 import PrizeTracker from './PrizeTracker';
 import MilestoneCelebration from './MilestoneCelebration';
 
 interface DashboardProps {
   user: User;
 }
-
-type LogType = 'sleep' | 'bonus';
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [todayHours, setTodayHours] = useState(0);
@@ -22,7 +20,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [isOnline, setIsOnline] = useState(true);
   
   // Logging State
-  const [logType, setLogType] = useState<LogType>('sleep');
   const [bedtime, setBedtime] = useState('22:30');
   const [wakeTime, setWakeTime] = useState('06:30');
   const [qualityRating, setQualityRating] = useState<number>(0);
@@ -190,7 +187,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   // Calculate sleep hours when times change
   // If AI extracted actual sleep duration, use that instead of bedtime-to-wake calculation
   useEffect(() => {
-    if (logType === 'sleep' && bedtime && wakeTime) {
+    if (bedtime && wakeTime) {
       if (extractedData?.totalSleepHours) {
         setCalculatedHours(extractedData.totalSleepHours);
       } else {
@@ -198,7 +195,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         setCalculatedHours(hours);
       }
     }
-  }, [logType, bedtime, wakeTime, extractedData]);
+  }, [bedtime, wakeTime, extractedData]);
 
   // Handle AI Screenshot Analysis
   const handleScanScreenshots = async () => {
@@ -338,7 +335,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         setSleepEfficiency('');
         setSleepLatency('');
         setShowAdvancedMetrics(false);
-        setLogType('sleep');
         setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
         
         // Reset AI scan state
@@ -355,21 +351,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         setIsSubmitting(false);
     }
   };
-  
-  const handleBonusLog = async (hours: number, type: BonusType) => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-        await db.logBonus(user.id, hours, type, selectedDate);
-        setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
-        setShowLogModal(false);
-        await fetchData();
-    } catch (e) {
-        console.error(e);
-    } finally {
-        setIsSubmitting(false);
-    }
-  }
   
   const handleEnterWeeklyRaffle = async () => {
     if (weeklyHours < RAFFLE_THRESHOLD_HOURS) return;
@@ -389,19 +370,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   };
   
-  const getBonusIcon = (iconName: string) => {
-      switch(iconName) {
-          case 'Coffee': return <Coffee size={18} />;
-          case 'BookOpen': return <BookOpen size={18} />;
-          case 'MonitorOff': return <MonitorOff size={18} />;
-          case 'Thermometer': return <Thermometer size={18} />;
-          case 'Brain': return <Brain size={18} />;
-          case 'Clock': return <Clock size={18} />;
-          case 'Zap': return <Zap size={18} />;
-          default: return <Moon size={18} />;
-      }
-  };
-
   const progressPercentage = Math.min(100, (todayHours / DAILY_GOAL) * 100);
   const weeklyPercentage = Math.min(100, (weeklyHours / RAFFLE_THRESHOLD_HOURS) * 100);
   const grandPercentage = Math.min(100, (totalMonthHours / GRAND_PRIZE_THRESHOLD_HOURS) * 100);
@@ -905,24 +873,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               />
             </div>
 
-            {/* Main Toggle */}
-            <div className="bg-gray-100 p-1 rounded-xl flex mb-6">
-                <button 
-                    onClick={() => setLogType('sleep')}
-                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${logType === 'sleep' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
-                >
-                    <Bed size={18} className="mr-2" /> Sleep
-                </button>
-                <button 
-                    onClick={() => setLogType('bonus')}
-                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${logType === 'bonus' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
-                >
-                    <Star size={18} className="mr-2" /> Bonuses
-                </button>
-            </div>
-
             {/* Sleep Log Form */}
-            {logType === 'sleep' && (
                  <div className="space-y-4">
                      {/* Bedtime & Wake Time */}
                      <div className="grid grid-cols-2 gap-4">
@@ -1284,35 +1235,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                          />
                      </div>
                  </div>
-            )}
 
-            {/* Bonus Activities */}
-            {logType === 'bonus' && (
-              <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
-                 {BONUS_ACTIVITIES.map((activity) => (
-                    <button
-                      key={activity.type}
-                      disabled={isSubmitting}
-                      onClick={() => handleBonusLog(activity.hours, activity.type)}
-                      className="flex items-center w-full p-3 rounded-xl border border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-indigo-600 mr-3 group-hover:bg-white group-hover:text-indigo-500 transition-colors">
-                        {getBonusIcon(activity.icon || 'Moon')}
-                      </div>
-                      <div className="flex-1">
-                          <div className="flex justify-between items-center">
-                              <span className="font-bold text-gray-900 text-sm">{activity.label}</span>
-                              <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">+{activity.hours}h</span>
-                          </div>
-                          <p className="text-[10px] text-gray-500 mt-0.5 pr-2">{activity.description}</p>
-                      </div>
-                    </button>
-                 ))}
-              </div>
-            )}
-
-            {/* Submit Action (only for sleep tab) */}
-            {logType === 'sleep' && (
+            {/* Submit Action */}
               <button
                   disabled={isSubmitting || calculatedHours === 0}
                   onClick={handleLogSubmit}
@@ -1320,7 +1244,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               >
                   {isSubmitting ? 'Saving...' : `Log ${calculatedHours.toFixed(1)} Hours`}
               </button>
-            )}
 
           </div>
         </div>

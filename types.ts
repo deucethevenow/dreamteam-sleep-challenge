@@ -1,6 +1,3 @@
-
-export type BonusType = 'Bonus: No Caffeine' | 'Bonus: Wind-down' | 'Bonus: No Screens' | 'Bonus: Cool Room' | 'Bonus: Meditation' | 'Bonus: Exercise' | 'Bonus: Gratitude' | 'Bonus: Hydration';
-
 export interface Team {
   id: number;
   name: string;
@@ -49,7 +46,7 @@ export interface SleepLog {
   quality_rating?: number; // 1-5 stars (manual rating)
   screenshot_url?: string; // Optional verification screenshot
   notes?: string;
-  bonus_type?: BonusType;
+  bonus_type?: string;
   
   // Detailed sleep metrics (optional - from wearables/apps)
   metrics?: SleepMetrics;
@@ -114,10 +111,3 @@ export interface DailyQuest {
   targetValue?: number; // e.g. 8 hours
 }
 
-export interface BonusActivity {
-  type: BonusType;
-  label: string;
-  hours: number;
-  description: string;
-  icon: string;
-}

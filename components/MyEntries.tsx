@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SleepLog } from '../types';
 import { db } from '../services/dataService';
-import { BONUS_ACTIVITIES, calculateSleepHours } from '../constants';
+import { calculateSleepHours } from '../constants';
 import {
   Pencil,
   Trash2,
@@ -20,8 +20,6 @@ import {
 interface MyEntriesProps {
   user: User;
 }
-
-const BONUS_TYPES = BONUS_ACTIVITIES.map(b => b.type);
 
 const MyEntries: React.FC<MyEntriesProps> = ({ user }) => {
   const [entries, setEntries] = useState<SleepLog[]>([]);

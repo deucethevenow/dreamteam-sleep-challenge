@@ -1,4 +1,4 @@
-import { Team, Badge, DailyQuest, BonusActivity } from './types';
+import { Team, Badge, DailyQuest } from './types';
 
 export const APP_NAME = "dreamteam";
 export const DAILY_GOAL = 7.5; // 7.5 hours — aligned with 5 complete 90-min sleep cycles (AASM/NSF)
@@ -69,65 +69,6 @@ export const BADGES: Badge[] = [
   { id: 'weekend', label: 'Weekend Warrior', icon: '🎉', description: 'Great sleep on Saturday/Sunday', earned: false },
   { id: 'deep_sleeper', label: 'Deep Sleeper', icon: '💎', description: '9+ hours in one night', earned: false },
   { id: 'daily_winner', label: 'Nightly Champion', icon: '🌙', description: 'Most sleep in a single night', earned: false },
-];
-
-export const BONUS_ACTIVITIES: BonusActivity[] = [
-  { 
-    type: 'Bonus: No Caffeine', 
-    label: 'No Caffeine After 2pm', 
-    hours: 1, 
-    description: 'Caffeine-free evenings lead to deeper sleep.',
-    icon: 'Coffee'
-  },
-  { 
-    type: 'Bonus: Wind-down', 
-    label: 'Wind-down Routine', 
-    hours: 0.5, 
-    description: 'Relaxing activities before bed (reading, stretching).',
-    icon: 'BookOpen' 
-  },
-  { 
-    type: 'Bonus: No Screens', 
-    label: 'No Screens 1hr Before', 
-    hours: 0.5, 
-    description: 'Blue light-free for better melatonin production.',
-    icon: 'MonitorOff' 
-  },
-  { 
-    type: 'Bonus: Cool Room', 
-    label: 'Room Temp 65-68°F', 
-    hours: 0.5, 
-    description: 'Optimal temperature for quality sleep.',
-    icon: 'Thermometer' 
-  },
-  { 
-    type: 'Bonus: Meditation', 
-    label: 'Meditation Before Bed', 
-    hours: 0.5, 
-    description: 'Calm the mind for faster sleep onset.',
-    icon: 'Brain' 
-  },
-  { 
-    type: 'Bonus: Exercise', 
-    label: 'Exercise Today', 
-    hours: 0.5, 
-    description: 'Physical activity promotes better sleep.',
-    icon: 'Dumbbell' 
-  },
-  { 
-    type: 'Bonus: Gratitude', 
-    label: 'Gratitude Journal', 
-    hours: 0.25, 
-    description: 'Positive thoughts reduce sleep anxiety.',
-    icon: 'Heart' 
-  },
-  { 
-    type: 'Bonus: Hydration', 
-    label: 'Proper Hydration', 
-    hours: 0.25, 
-    description: 'Well-hydrated body sleeps better (but not too close to bed!).',
-    icon: 'Droplets' 
-  },
 ];
 
 export const DAILY_QUESTS: DailyQuest[] = [
