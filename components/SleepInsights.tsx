@@ -111,83 +111,89 @@ const SleepInsights: React.FC<SleepInsightsProps> = ({ user }) => {
         </div>
       </div>
 
-      {/* --- Bedtime & Wake Time Consistency --- */}
+      {/* --- Sleep Schedule Timeline --- */}
       {recentLogs.filter(l => l.bedtime && l.bedtime !== '00:00').length >= 2 && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Bedtime & Wake Consistency</h4>
+          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Sleep Schedule</h4>
           {(() => {
             const logsWithTimes = recentLogs.filter(l => l.bedtime && l.bedtime !== '00:00' && l.wake_time && l.wake_time !== '00:00');
-            const toDecimal = (t: string) => {
+            // Convert time to decimal hours, normalizing bedtime past midnight
+            const toBedDec = (t: string) => {
               const [h, m] = t.split(':').map(Number);
-              return h + m / 60;
+              return h < 12 ? 24 + h + m / 60 : h + m / 60; // <12 = next day
             };
-            const toBedDecimal = (t: string) => {
+            const toWakeDec = (t: string) => {
               const [h, m] = t.split(':').map(Number);
-              // Normalize: treat < 6 AM as next day
-              return h < 6 ? 24 + h + m / 60 : h + m / 60;
+              return 24 + h + m / 60; // always next day for alignment
             };
-            const bedtimes = logsWithTimes.map(l => toBedDecimal(l.bedtime));
-            const waketimes = logsWithTimes.map(l => toDecimal(l.wake_time));
-            const avgBed = bedtimes.reduce((a, b) => a + b, 0) / bedtimes.length;
-            const avgWake = waketimes.reduce((a, b) => a + b, 0) / waketimes.length;
-            // Chart range: 8 PM (20) to 10 AM (34 = 10 + 24 for next-day normalization)
-            const chartMin = 20;
-            const chartMax = 34;
-            const chartRange = chartMax - chartMin;
-            const toX = (val: number) => {
-              const clamped = Math.max(chartMin, Math.min(chartMax, val));
-              return ((clamped - chartMin) / chartRange) * 100;
+            const formatTime12 = (t: string) => {
+              const [h, m] = t.split(':').map(Number);
+              const ampm = h >= 12 ? 'PM' : 'AM';
+              const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+              return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
             };
-            // Wake times need normalization too (add 24 for chart display)
-            const wakeForChart = waketimes.map(w => w < chartMin ? w + 24 : w);
-            const avgWakeChart = wakeForChart.reduce((a, b) => a + b, 0) / wakeForChart.length;
 
-            const formatTime = (dec: number) => {
-              const h24 = dec >= 24 ? dec - 24 : dec;
-              const hh = Math.floor(h24);
-              const mm = Math.round((h24 - hh) * 60);
-              const ampm = hh >= 12 ? 'PM' : 'AM';
-              const h12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
-              return h12 + ':' + String(mm).padStart(2, '0') + ' ' + ampm;
+            // Chart range: 9 PM (21) to 9 AM (33)
+            const chartMin = 21;
+            const chartMax = 33;
+            const toPct = (val: number) => Math.max(0, Math.min(100, ((val - chartMin) / (chartMax - chartMin)) * 100));
+
+            // Compute averages
+            const bedDecs = logsWithTimes.map(l => toBedDec(l.bedtime));
+            const wakeDecs = logsWithTimes.map(l => toWakeDec(l.wake_time));
+            const avgBed = bedDecs.reduce((a, b) => a + b, 0) / bedDecs.length;
+            const avgWake = wakeDecs.reduce((a, b) => a + b, 0) / wakeDecs.length;
+            const avgBedH = Math.floor(avgBed >= 24 ? avgBed - 24 : avgBed);
+            const avgBedM = Math.round((avgBed % 1) * 60);
+            const avgWakeH = Math.floor(avgWake >= 24 ? avgWake - 24 : avgWake);
+            const avgWakeM = Math.round((avgWake % 1) * 60);
+            const fmtAvg = (h: number, m: number) => {
+              const ampm = h >= 12 ? 'PM' : 'AM';
+              const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+              return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
             };
 
             return (
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <svg viewBox="0 0 300 80" className="w-full" preserveAspectRatio="xMidYMid meet">
-                  {/* Avg bedtime band (±30min = ±0.5h) */}
-                  <rect
-                    x={toX(avgBed - 0.5) * 3} y="5"
-                    width={Math.max(0, (toX(avgBed + 0.5) - toX(avgBed - 0.5)) * 3)} height="30"
-                    fill="#818cf8" opacity="0.15" rx="4"
-                  />
-                  {/* Avg wake band (±30min) */}
-                  <rect
-                    x={toX(avgWakeChart - 0.5) * 3} y="45"
-                    width={Math.max(0, (toX(avgWakeChart + 0.5) - toX(avgWakeChart - 0.5)) * 3)} height="30"
-                    fill="#f59e0b" opacity="0.15" rx="4"
-                  />
-                  {/* Bedtime dots */}
-                  {bedtimes.map((b, i) => (
-                    <circle key={"b" + i} cx={toX(b) * 3} cy="20" r="4" fill="#6366f1" opacity="0.8" />
-                  ))}
-                  {/* Wake dots */}
-                  {wakeForChart.map((w, i) => (
-                    <circle key={"w" + i} cx={toX(w) * 3} cy="60" r="4" fill="#f59e0b" opacity="0.8" />
-                  ))}
-                  {/* Avg lines */}
-                  <line x1={toX(avgBed) * 3} y1="5" x2={toX(avgBed) * 3} y2="35" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="3 2" />
-                  <line x1={toX(avgWakeChart) * 3} y1="45" x2={toX(avgWakeChart) * 3} y2="75" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 2" />
-                </svg>
-                <div className="flex justify-between mt-2 text-[10px]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" />
-                    <span className="text-gray-500">Avg Bed: <strong className="text-gray-700">{formatTime(avgBed)}</strong></span>
+              <div className="space-y-2">
+                {logsWithTimes.map((log, i) => {
+                  const bedDec = toBedDec(log.bedtime);
+                  const wakeDec = toWakeDec(log.wake_time);
+                  const leftPct = toPct(bedDec);
+                  const widthPct = toPct(wakeDec) - leftPct;
+                  const dateLabel = log.date_logged.slice(5);
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-400 w-12 text-right font-mono">{dateLabel}</span>
+                      <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
+                        {/* Sleep bar */}
+                        <div
+                          className="absolute top-1 bottom-1 bg-gradient-to-r from-indigo-500 to-violet-400 rounded-md flex items-center justify-center"
+                          style={{ left: leftPct + '%', width: Math.max(widthPct, 2) + '%' }}
+                        >
+                          <span className="text-[9px] text-white font-bold whitespace-nowrap px-1">{log.sleep_hours.toFixed(1)}h</span>
+                        </div>
+                      </div>
+                      <div className="text-[9px] text-gray-500 w-28 text-right">
+                        <span className="text-indigo-600 font-medium">{formatTime12(log.bedtime)}</span>
+                        <span className="mx-0.5">-</span>
+                        <span className="text-amber-600 font-medium">{formatTime12(log.wake_time)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Time axis labels */}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="w-12" />
+                  <div className="flex-1 flex justify-between text-[9px] text-gray-300 px-0.5">
+                    <span>9PM</span><span>11PM</span><span>1AM</span><span>3AM</span><span>5AM</span><span>7AM</span><span>9AM</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-                    <span className="text-gray-500">Avg Wake: <strong className="text-gray-700">{formatTime(avgWakeChart)}</strong></span>
-                  </div>
-                  <span className="text-gray-400">Shaded = &#177;30min zone</span>
+                  <span className="w-28" />
+                </div>
+                {/* Averages */}
+                <div className="flex items-center justify-center gap-4 mt-1 text-[10px]">
+                  <span className="text-gray-500">Avg Bed: <strong className="text-indigo-600">{fmtAvg(avgBedH, avgBedM)}</strong></span>
+                  <span className="text-gray-300">|</span>
+                  <span className="text-gray-500">Avg Wake: <strong className="text-amber-600">{fmtAvg(avgWakeH, avgWakeM)}</strong></span>
                 </div>
               </div>
             );
