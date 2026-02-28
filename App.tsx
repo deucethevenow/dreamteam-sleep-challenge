@@ -4,13 +4,14 @@ import Dashboard from './components/Dashboard';
 import Leaderboard from './components/Leaderboard';
 import JourneyMap from './components/JourneyMap';
 import MyEntries from './components/MyEntries';
+import SleepInsights from './components/SleepInsights';
 import { User } from './types';
-import { LayoutDashboard, Map, ClipboardList, Moon } from 'lucide-react';
+import { LayoutDashboard, Map, ClipboardList, Moon, BarChart3 } from 'lucide-react';
 import { APP_NAME } from './constants';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'journey' | 'entries'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'journey' | 'entries' | 'sleep'>('dashboard');
 
   // Simple persistence for logged-in state within session
   useEffect(() => {
@@ -64,6 +65,12 @@ const App: React.FC = () => {
           >
             <ClipboardList className="mr-3" size={20} /> My Entries
           </button>
+          <button
+            onClick={() => setCurrentView('sleep')}
+            className={`w-full flex items-center px-4 py-3 rounded-xl font-medium transition-all ${currentView === 'sleep' ? 'bg-indigo-500/20 text-indigo-400' : 'text-gray-400 hover:bg-gray-700'}`}
+          >
+            <BarChart3 className="mr-3" size={20} /> My Sleep
+          </button>
         </nav>
         <div className="p-4 border-t border-gray-700">
           <div className="flex items-center mb-4">
@@ -101,6 +108,8 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'entries' && <MyEntries user={user} />}
+
+        {currentView === 'sleep' && <SleepInsights user={user} />}
       </main>
 
       {/* Mobile Bottom Nav (Sticky) */}
@@ -125,6 +134,13 @@ const App: React.FC = () => {
         >
           <ClipboardList size={22} />
           <span className="text-[10px] font-medium mt-1">Entries</span>
+        </button>
+        <button
+          onClick={() => setCurrentView('sleep')}
+          className={`flex flex-col items-center p-2 rounded-lg ${currentView === 'sleep' ? 'text-indigo-400' : 'text-gray-500'}`}
+        >
+          <BarChart3 size={22} />
+          <span className="text-[10px] font-medium mt-1">My Sleep</span>
         </button>
       </div>
       <style>{`

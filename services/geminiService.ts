@@ -229,14 +229,12 @@ export const getSleepTip = async (currentHours: number): Promise<string> => {
 
   try {
     const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const prompt = `
-      Generate a short, witty, and science-backed sleep tip (max 1 sentence) for someone
-      who logged ${currentHours.toFixed(1)} hours of sleep today.
-      If hours are low (<6), be encouraging about improving sleep.
-      If hours are good (7-9), celebrate and offer maintenance tips.
-      If hours are high (>9), gently remind about oversleeping risks.
-      Include one relevant emoji.
-    `;
+    const hours = currentHours.toFixed(1);
+    const prompt = "This person logged " + hours + " hours of sleep. " +
+      "Give them ONE short, witty, science-backed sleep tip (1-2 sentences max). " +
+      "Be specific to their hours — do NOT list multiple scenarios. " +
+      "Do NOT use markdown formatting (no asterisks, no bold, no bullet points). " +
+      "Include one relevant emoji. Just the tip, nothing else.";
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
