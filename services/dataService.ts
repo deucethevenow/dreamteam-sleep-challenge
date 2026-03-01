@@ -1,4 +1,4 @@
-import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics } from '../types';
+import { Team, User, SleepLog, TeamStats, UserStats, DailyTeamStat, Badge, GlobalProgress, SleepMetrics, BonusType } from '../types';
 import { GLOBAL_GOAL, MILESTONES, DAILY_GOAL, BADGES, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, INITIAL_TEAMS, INITIAL_USERS, calculateSleepHours } from '../constants';
 
 // API BASE URL - In Replit/Production this is usually relative or configured
@@ -157,7 +157,7 @@ class DataService {
   }
 
   // Log bonus activity (gives hour credits)
-  async logBonus(userId: number, hours: number, bonusType: string, customDate?: string): Promise<void> {
+  async logBonus(userId: number, hours: number, bonusType: BonusType, customDate?: string): Promise<void> {
     const dateStr = customDate || getMountainTimeDate();
 
     try {
@@ -412,12 +412,19 @@ class DataService {
       const totalHours = teamLogs.reduce((sum, log) => sum + log.sleep_hours, 0);
       const memberCount = teamMembers.length;
       const averageHours = memberCount > 0 ? Math.round((totalHours / memberCount) * 10) / 10 : 0;
+      
+      // Calculate average sleep score from logs with metrics
+      const logsWithScore = teamLogs.filter(l => l.metrics?.sleep_score !== undefined);
+      const avgSleepScore = logsWithScore.length > 0
+        ? Math.round(logsWithScore.reduce((sum, log) => sum + (log.metrics?.sleep_score || 0), 0) / logsWithScore.length)
+        : 0;
 
       return {
         team,
         totalHours,
         memberCount,
         averageHours,
+        avgSleepScore,
         members: teamMembers
       };
     }).sort((a, b) => b.totalHours - a.totalHours);
@@ -583,10 +590,17 @@ class DataService {
         ? qualityLogs.reduce((sum, l) => sum + (l.quality_rating || 0), 0) / qualityLogs.length 
         : undefined;
 
+      // Calculate average sleep score from logs with metrics
+      const logsWithScore = userLogs.filter(l => l.metrics?.sleep_score !== undefined);
+      const avgSleepScore = logsWithScore.length > 0
+        ? Math.round(logsWithScore.reduce((sum, log) => sum + (log.metrics?.sleep_score || 0), 0) / logsWithScore.length)
+        : 0;
+
       return {
         user,
         teamName: team ? team.name : 'Unknown',
         totalHours,
+        avgSleepScore,
         streak,
         badges,
         avgQuality

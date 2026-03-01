@@ -84,7 +84,9 @@ const MyEntries: React.FC<MyEntriesProps> = ({ user }) => {
     const success = await db.updateLog(
       entryId,
       calculatedHours,
-      '', // No bonus type for regular sleep
+      editBedtime,
+      editWakeTime,
+      editQuality || undefined,
       editDate
     );
 
