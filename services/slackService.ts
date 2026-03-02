@@ -2,6 +2,9 @@ import { Pool } from 'pg';
 import { GLOBAL_GOAL, WEEKLY_GOAL, RAFFLE_THRESHOLD_HOURS, GRAND_PRIZE_THRESHOLD_HOURS, DAILY_GOAL, CHALLENGE_START, CHALLENGE_END } from '../constants';
 import { getDailyFunFact, getMorningMotivation } from './geminiService';
 
+// App URL for Slack message links (configurable via env var)
+const APP_URL = process.env.APP_URL || 'https://dreamteam-sleep-1024587728322.us-central1.run.app';
+
 // Helper: Get date string in Mountain Time (YYYY-MM-DD format)
 const getMountainTimeDate = (date: Date = new Date()): string => {
   return date.toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
@@ -1047,7 +1050,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🎯 *Haven't logged yet? There's still time!*\n<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+        text: `🎯 *Haven't logged yet? There's still time!*\n<${APP_URL}|Log Your Sleep Now>`
       }
     }
   ];
@@ -1153,7 +1156,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "🎯 *Who's logging their sleep today?*\n<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+          text: `🎯 *Who's logging their sleep today?*\n<${APP_URL}|Log Your Sleep Now>`
         }
       }
     ];
@@ -1423,7 +1426,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🌟 *Ready to log today's sleep?*\n<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+        text: `🌟 *Ready to log today's sleep?*\n<${APP_URL}|Log Your Sleep Now>`
       }
     }
   ];
@@ -1643,7 +1646,7 @@ export const sendGrandPrizeCountdownPost = async (pool: Pool): Promise<any> => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+          text: `<${APP_URL}|Log Your Sleep Now>`
         }
       }
     ];
