@@ -12,18 +12,18 @@ const INITIAL_TEAMS = [
 ];
 
 const INITIAL_USERS = [
-  // Team 1 - The Night Owls (4 members)
+  // Team 1 - The Night Owls (5 members)
+  { id: 1, username: "Ashton", slack_username: "ashton owens", slack_user_id: "U05KFD8B8PJ", team_id: 1, avatar_emoji: "🌅", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 2, username: "Victoria", slack_username: "victoria newton", slack_user_id: "U06UWNKATU7", team_id: 1, avatar_emoji: "🌙", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 4, username: "Francisco", slack_username: "francisco cazes", slack_user_id: "U09MF1GDBV4", team_id: 1, avatar_emoji: "🛏️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 4, username: "Leo", slack_username: "leo", slack_user_id: "U0A9CQMFYU9", team_id: 1, avatar_emoji: "🔥", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 5, username: "Claire", slack_username: "claire", slack_user_id: "U06P34GBSAC", team_id: 1, avatar_emoji: "✨", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 6, username: "Deuce", slack_username: "deuce", slack_user_id: "U06FDAS93", team_id: 1, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 8, username: "Arb", slack_username: "arb", slack_user_id: "UCHB3H37B", team_id: 1, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 
-  // Team 2 - The Dream Chasers (5 members)
-  { id: 1, username: "Pam", slack_username: "pam", slack_user_id: "U05UC7E564F", team_id: 2, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  // Team 2 - The Dream Chasers (4 members)
   { id: 3, username: "Jack", slack_username: "jackshannon", slack_user_id: "U06FBCJUU", team_id: 2, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 5, username: "Claire", slack_username: "claire", slack_user_id: "U06P34GBSAC", team_id: 2, avatar_emoji: "✨", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 7, username: "Courtney", slack_username: "courtney cook", slack_user_id: "U09NCCX1KMZ", team_id: 2, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 9, username: "Andy Cooper", slack_username: "andy", slack_user_id: "U09JL7ML316", team_id: 2, avatar_emoji: "⭐", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 8, username: "Arb", slack_username: "arb", slack_user_id: "UCHB3H37B", team_id: 2, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 9, username: "Char", slack_username: "char short", slack_user_id: "UJSAUSDEV", team_id: 2, avatar_emoji: "💫", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 ];
 
 // --- Database Setup ---
@@ -124,6 +124,16 @@ const seedData = async () => {
   if ((deleted.rowCount ?? 0) > 0) {
     console.log("Removed " + deleted.rowCount + " extra user(s) not in seed list");
   }
+
+  // Clean slate: purge all data before challenge start (March 1, 2026)
+  const preChallenge = await pool.query("DELETE FROM sleep_logs WHERE date_logged < '2026-03-01'");
+  if ((preChallenge.rowCount ?? 0) > 0) {
+    console.log("Purged " + preChallenge.rowCount + " pre-challenge sleep logs");
+  }
+  await pool.query("DELETE FROM daily_winners WHERE date < '2026-03-01'");
+  await pool.query("DELETE FROM activity_logs"); // legacy table — clear all
+  // Reset all user stats for fresh start
+  await pool.query('UPDATE users SET raffle_tickets = 0, grand_prize_entry = FALSE, banked_hours = 0');
 
   // Seed Prizes
   console.log("Seeding Prizes...");

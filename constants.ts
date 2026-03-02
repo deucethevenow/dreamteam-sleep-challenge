@@ -30,18 +30,18 @@ export const INITIAL_TEAMS: Team[] = [
 ];
 
 export const INITIAL_USERS = [
-  // Team 1 - The Night Owls (4 members)
+  // Team 1 - The Night Owls (5 members)
+  { id: 1, username: "Ashton", team_id: 1, avatar_emoji: "🌅", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 2, username: "Victoria", team_id: 1, avatar_emoji: "🌙", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 4, username: "Francisco", team_id: 1, avatar_emoji: "🛏️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 4, username: "Leo", team_id: 1, avatar_emoji: "🔥", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 5, username: "Claire", team_id: 1, avatar_emoji: "✨", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 6, username: "Deuce", team_id: 1, avatar_emoji: "🧢", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 8, username: "Arb", team_id: 1, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 
-  // Team 2 - The Dream Chasers (5 members)
-  { id: 1, username: "Pam", team_id: 2, avatar_emoji: "😴", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  // Team 2 - The Dream Chasers (4 members)
   { id: 3, username: "Jack", team_id: 2, avatar_emoji: "💤", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 5, username: "Claire", team_id: 2, avatar_emoji: "✨", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
   { id: 7, username: "Courtney", team_id: 2, avatar_emoji: "🌟", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
-  { id: 9, username: "Andy Cooper", team_id: 2, avatar_emoji: "⭐", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 8, username: "Arb", team_id: 2, avatar_emoji: "🕶️", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
+  { id: 9, username: "Char", team_id: 2, avatar_emoji: "💫", raffle_tickets: 0, grand_prize_entry: false, banked_hours: 0 },
 ];
 
 // Sleep-themed journey milestones (based on 9 participants * 7.5h * 31 days = 2,092.5h)

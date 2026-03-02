@@ -296,11 +296,14 @@ export const sendWeeklyPrizeQualificationCelebration = async (
 };
 
 // Send celebration message when user qualifies for grand prize
+// NOTE: Suppressed — grand prize is a secret surprise, will be revealed later
 export const sendGrandPrizeQualificationCelebration = async (
   pool: Pool,
   userId: number,
   totalHours: number
 ): Promise<void> => {
+  console.log(`Grand prize qualification tracked for user ${userId} (${totalHours}h) — celebration suppressed (secret)`);
+  return; // Grand prize is hidden for now
   try {
     // Get user info
     const userRes = await pool.query(`
@@ -1027,7 +1030,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       fields: [
         { type: "mrkdwn", text: `🎟️ *Week ${currentWeek} Raffle:* ${qualifiedForPrize.length} qualified` },
-        { type: "mrkdwn", text: grandPrizeText }
+        { type: "mrkdwn", text: `😴 *Keep logging!* Every hour counts` }
       ]
     },
     {
@@ -1044,7 +1047,7 @@ export const sendSlackDailyUpdate = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🎯 *Haven't logged yet? There's still time!*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+        text: "🎯 *Haven't logged yet? There's still time!*\n<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
       }
     }
   ];
@@ -1150,7 +1153,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "🎯 *Who's logging their sleep today?*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+          text: "🎯 *Who's logging their sleep today?*\n<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
         }
       }
     ];
@@ -1420,7 +1423,7 @@ export const sendSlackMorningRecap = async (pool: Pool) => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "🌟 *Ready to log today's sleep?*\n<https://teamtrek-1024587728322.us-central1.run.app|Log Your Sleep Now>"
+        text: "🌟 *Ready to log today's sleep?*\n<https://dreamteam-sleep-1024587728322.us-central1.run.app|Log Your Sleep Now>"
       }
     }
   ];
@@ -1533,14 +1536,14 @@ export const checkAndAnnounceMilestone = async (
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `📊 *${newTotal.toFixed(1)} hours* of sleep logged so far!\n\nThat's *half the journey* to unlocking the grand prize! 🏆`
+              text: `📊 *${newTotal.toFixed(1)} hours* of sleep logged so far!\n\nThat's *half the journey* to our challenge goal! Keep it up! 🏆`
             }
           },
           {
             type: "context",
             elements: [{
               type: "mrkdwn",
-              text: `${grandPrize?.emoji || '👑'} Grand Prize: *${grandPrize?.title || 'Ultimate Sleep Setup'}*`
+              text: `🌙 _Keep the momentum going — great things await consistent sleepers!_`
             }]
           },
           {
@@ -2035,18 +2038,6 @@ export const sendChallengeKickoff = async () => {
           + '☁️ *Week 4:* Cozy Sleep Upgrade — weighted blanket + silk pillowcases + supplements ($120)'
       }
     },
-    { type: 'divider' },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: '*👑 GRAND PRIZE — WINNER CHOOSES ONE:*\n'
-          + '_Hit 70% of your monthly goal (162.75 hours) to enter!_\n\n'
-          + '👑 *Ultimate Sleep Setup ($350)* — Hatch + Manta + SleepPhones + weighted blanket + supplement stack\n'
-          + '🧖 *Sleep Spa Experience ($300)* — float tank + deep tissue massage + Theragun Mini + aromatherapy\n'
-          + '🎁 *Sleeper\'s Choice ($300)* — spend it on ANY sleep products you want!'
-      }
-    }
   ];
   await postToSlack(prizesBlocks);
 
@@ -2069,7 +2060,6 @@ export const sendChallengeKickoff = async () => {
           + '• Weekly awards every Monday\n\n'
           + '*3️⃣ Hit your targets*\n'
           + '• 60% weekly (31.5h) = raffle ticket 🎟️\n'
-          + '• 70% monthly (162.75h) = grand prize entry 👑\n'
           + '• Team goal: 2,093 total hours = unlock the journey map!'
       }
     },

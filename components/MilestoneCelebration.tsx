@@ -145,44 +145,19 @@ const MilestoneCelebration: React.FC<MilestoneCelebrationProps> = ({
             </p>
           )}
 
-          {/* Grand Prize Reveal */}
-          <div className="bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 rounded-2xl p-6 border-2 border-yellow-300 mb-6 shadow-inner">
+          {/* Encouragement block */}
+          <div className="bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-cyan-200 mb-6 shadow-inner">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <Sparkles className="text-yellow-500" size={18} />
-              <span className="text-xs font-bold text-yellow-700 uppercase tracking-widest">
-                Grand Prize Revealed
+              <Sparkles className="text-cyan-500" size={18} />
+              <span className="text-xs font-bold text-cyan-700 uppercase tracking-widest">
+                Keep The Momentum
               </span>
-              <Sparkles className="text-yellow-500" size={18} />
+              <Sparkles className="text-cyan-500" size={18} />
             </div>
 
-            <p className="text-xs text-gray-500 italic mb-2">Sweet dreams just got sweeter... 🌙</p>
+            <p className="text-sm text-gray-600 mb-3">The second half is where champions are made. Stay consistent, keep logging, and great things are coming!</p>
 
-            <div className="text-5xl mb-2 drop-shadow-sm">👑 🧖 🎁</div>
-            <h3 className="text-lg font-bold text-gray-900 mb-3">WINNER CHOOSES ONE:</h3>
-
-            <div className="space-y-3 text-left">
-              <div className="bg-white/60 rounded-lg p-3">
-                <p className="font-bold text-gray-800">👑 Ultimate Sleep Setup ($350)</p>
-                <p className="text-xs text-gray-600">Hatch Restore 2 + Manta Sleep Mask + SleepPhones + Weighted Blanket + Supplement Stack</p>
-              </div>
-              <div className="text-gray-400 text-xs font-bold">— OR —</div>
-              <div className="bg-white/60 rounded-lg p-3">
-                <p className="font-bold text-gray-800">🧖 Sleep Spa Experience ($300)</p>
-                <p className="text-xs text-gray-600">Float tank session + deep tissue massage + Theragun Mini + aromatherapy kit</p>
-              </div>
-              <div className="text-gray-400 text-xs font-bold">— OR —</div>
-              <div className="bg-white/60 rounded-lg p-3">
-                <p className="font-bold text-gray-800">🎁 Sleeper's Choice ($300)</p>
-                <p className="text-xs text-gray-600">$300 to spend on ANY sleep products you want!</p>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-yellow-200">
-              <div className="flex items-center justify-center gap-1 text-xs text-yellow-700">
-                <TrendingUp size={14} />
-                <span>Hit 70% of your personal goal to enter! 🎟️</span>
-              </div>
-            </div>
+            <div className="text-4xl mb-2">🌙 💪 🏆</div>
           </div>
 
           <button
