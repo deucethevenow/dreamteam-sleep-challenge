@@ -23,24 +23,22 @@ const SleepInsights: React.FC<SleepInsightsProps> = ({ user }) => {
     const fetchData = async () => {
       try {
         const allUserLogs = await db.getUserLogs(user.id);
-        const sleepLogs = allUserLogs.filter((l: any) => !l.bonus_type);
-        const last14 = sleepLogs.slice(0, 14).reverse(); // oldest first for charts
+        const last14 = allUserLogs.slice(0, 14).reverse(); // oldest first for charts
         setRecentLogs(last14);
 
         // Compute consistency & composite score
-        const recent7 = sleepLogs.slice(0, 7);
+        const recent7 = allUserLogs.slice(0, 7);
         const consistency = calculateConsistencyVariation(recent7);
         setConsistencyVar(Math.round(consistency.avgVariation));
-        const sleepOnly = recent7.filter((l: any) => !l.bonus_type);
-        const avgHours = sleepOnly.length > 0
-          ? sleepOnly.reduce((sum: number, l: any) => sum + l.sleep_hours, 0) / sleepOnly.length
+        const avgHours = recent7.length > 0
+          ? recent7.reduce((sum: number, l: any) => sum + l.sleep_hours, 0) / recent7.length
           : 0;
         const score = calculateCompositeScore(avgHours, consistency.avgVariation);
         setCompositeScore(score.total);
 
         // Compute streak
         let s = 0;
-        for (const log of sleepLogs) {
+        for (const log of allUserLogs) {
           if (log.sleep_hours >= 7) s++;
           else break;
         }

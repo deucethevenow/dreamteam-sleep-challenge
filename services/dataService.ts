@@ -283,7 +283,7 @@ class DataService {
   async getLastNightSleep(userId: number): Promise<SleepLog | null> {
     const logs = await this.fetchLogs();
     const today = getMountainTimeDate();
-    const todayLogs = logs.filter(l => l.user_id === userId && l.date_logged === today && !l.bonus_type);
+    const todayLogs = logs.filter(l => l.user_id === userId && l.date_logged === today);
     return todayLogs.length > 0 ? todayLogs[todayLogs.length - 1] : null;
   }
 
@@ -494,7 +494,7 @@ class DataService {
     
     // Early sleeper - in bed before 10pm (exclude 0-5am which are late nights, not early)
     if (userLogs.some(l => {
-      if (!l.bedtime || l.bonus_type) return false;
+      if (!l.bedtime) return false;
       const [h, m] = l.bedtime.split(':').map(Number);
       return h >= 6 && (h < 22 || (h === 22 && m === 0));
     })) {
@@ -507,7 +507,7 @@ class DataService {
     }
     
     // Deep sleeper - 9+ hours
-    if (userLogs.some(l => l.sleep_hours >= 9 && !l.bonus_type)) {
+    if (userLogs.some(l => l.sleep_hours >= 9)) {
       earnedBadges.find((b: Badge) => b.id === 'deep_sleeper')!.earned = true;
     }
 
@@ -578,7 +578,7 @@ class DataService {
       const consistency = calculateConsistencyVariation(recentLogs);
 
       // Calculate average wearable metrics for composite score
-      const logsWithMetrics = userLogs.filter(l => !l.bonus_type && l.sleep_hours > 0);
+      const logsWithMetrics = userLogs.filter(l => l.sleep_hours > 0);
       const avgEfficiency = logsWithMetrics.length > 0 && logsWithMetrics.some(l => l.metrics?.sleep_efficiency)
         ? logsWithMetrics.filter(l => l.metrics?.sleep_efficiency).reduce((sum, l) => sum + (l.metrics?.sleep_efficiency || 0), 0) / logsWithMetrics.filter(l => l.metrics?.sleep_efficiency).length
         : undefined;

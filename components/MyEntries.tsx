@@ -157,9 +157,6 @@ const MyEntries: React.FC<MyEntriesProps> = ({ user }) => {
   };
 
   const getEntryIcon = (entry: SleepLog) => {
-    if (entry.bonus_type) {
-      return '🎯';
-    }
     if (entry.sleep_hours >= 8) {
       return '😴';
     }
@@ -395,21 +392,15 @@ const MyEntries: React.FC<MyEntriesProps> = ({ user }) => {
                                   {entry.sleep_hours.toFixed(1)} hours
                                   {entry.quality_rating && renderQualityStars(entry.quality_rating)}
                                 </div>
-                                {entry.bonus_type ? (
-                                  <div className="text-xs text-purple-600 font-medium">
-                                    {entry.bonus_type.replace('Bonus: ', '')}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-gray-500 flex items-center gap-2">
-                                    <span className="flex items-center">
-                                      <Moon size={10} className="mr-0.5" /> {formatTime(entry.bedtime)}
-                                    </span>
-                                    <span>→</span>
-                                    <span className="flex items-center">
-                                      <Sun size={10} className="mr-0.5" /> {formatTime(entry.wake_time)}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="text-xs text-gray-500 flex items-center gap-2">
+                                  <span className="flex items-center">
+                                    <Moon size={10} className="mr-0.5" /> {formatTime(entry.bedtime)}
+                                  </span>
+                                  <span>→</span>
+                                  <span className="flex items-center">
+                                    <Sun size={10} className="mr-0.5" /> {formatTime(entry.wake_time)}
+                                  </span>
+                                </div>
                                 {entry.notes && (
                                   <p className="text-xs text-gray-400 mt-1 italic">"{entry.notes}"</p>
                                 )}
@@ -426,15 +417,13 @@ const MyEntries: React.FC<MyEntriesProps> = ({ user }) => {
                                   <Image size={16} />
                                 </button>
                               )}
-                              {!entry.bonus_type && (
-                                <button
-                                  onClick={() => startEdit(entry)}
-                                  className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                  title="Edit entry"
-                                >
-                                  <Pencil size={16} />
-                                </button>
-                              )}
+                              <button
+                                onClick={() => startEdit(entry)}
+                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                title="Edit entry"
+                              >
+                                <Pencil size={16} />
+                              </button>
                               <button
                                 onClick={() => {
                                   setDeleteConfirmId(entry.id);

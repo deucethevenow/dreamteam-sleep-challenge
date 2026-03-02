@@ -352,11 +352,11 @@ export const calculateCompositeScore = (
 // Calculate bedtime/wake consistency from recent logs
 // Returns average variation in minutes from the user's own mean
 export const calculateConsistencyVariation = (
-  logs: { bedtime: string; wake_time: string; bonus_type?: string }[]
+  logs: { bedtime: string; wake_time: string }[]
 ): { bedtimeVariation: number; wakeVariation: number; avgVariation: number } => {
-  // Filter to actual sleep logs (not bonus), last 7 days max
+  // Filter to logs with valid bedtime/wake data, last 7 days max
   const sleepLogs = logs
-    .filter(l => !l.bonus_type && l.bedtime && l.wake_time && l.bedtime !== '00:00')
+    .filter(l => l.bedtime && l.wake_time && l.bedtime !== '00:00')
     .slice(0, 7);
 
   if (sleepLogs.length < 2) {
@@ -424,7 +424,7 @@ export const WEEKLY_AWARDS: WeeklyAward[] = [
   {
     id: 'power_sleeper', emoji: '⚡', title: 'Power Sleeper',
     description: 'Longest single sleep session',
-    criteria: 'Highest sleep_hours in a single log (non-bonus)',
+    criteria: 'Highest sleep_hours in a single log',
     compute: 'best_single_night',
   },
   {

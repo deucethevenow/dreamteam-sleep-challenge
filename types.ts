@@ -46,8 +46,6 @@ export interface SleepLog {
   quality_rating?: number; // 1-5 stars (manual rating)
   screenshot_url?: string; // Optional verification screenshot
   notes?: string;
-  bonus_type?: string;
-  
   // Detailed sleep metrics (optional - from wearables/apps)
   metrics?: SleepMetrics;
 }

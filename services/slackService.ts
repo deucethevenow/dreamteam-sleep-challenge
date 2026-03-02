@@ -1856,7 +1856,7 @@ export const sendAwardsCeremony = async (
                END) as bed_stddev
       FROM users u
       JOIN sleep_logs sl ON u.id = sl.user_id
-      WHERE sl.date_logged >= $1 AND sl.date_logged <= $2 AND sl.bonus_type IS NULL
+      WHERE sl.date_logged >= $1 AND sl.date_logged <= $2
       GROUP BY u.id, u.username, u.avatar_emoji
       HAVING COUNT(sl.id) >= 3
       ORDER BY COUNT(sl.id) DESC
@@ -2053,7 +2053,7 @@ export const sendChallengeKickoff = async () => {
         type: 'mrkdwn',
         text: '*1️⃣ Log your sleep daily* on the dashboard\n'
           + '• Enter bedtime, wake time, and quality rating\n'
-          + '• Have a wearable? Upload a screenshot for bonus metrics!\n\n'
+          + '• Have a wearable? Upload a screenshot for extra metrics!\n\n'
           + '*2️⃣ Watch the leaderboard* 📊\n'
           + '• Daily morning recaps at 9 AM\n'
           + '• Evening digests at 5 PM\n'

@@ -176,46 +176,6 @@ export const MILESTONES = [
 ];
 
 // =============================================================================
-// BONUS ACTIVITIES
-// =============================================================================
-
-/**
- * Bonus activities that award extra "steps" for wellness activities.
- * Users can log these in addition to actual steps.
- */
-export const BONUS_ACTIVITIES = [
-  {
-    type: 'Bonus: Lifting',
-    label: 'Lift / Weights',
-    steps: 1500,
-    description: 'Strength training session',
-    icon: 'Dumbbell'
-  },
-  {
-    type: 'Bonus: Sleep',
-    label: '8h Sleep',
-    steps: 500,
-    description: 'Got 8+ hours of quality sleep',
-    icon: 'Moon'
-  },
-  {
-    type: 'Bonus: Hydration',
-    label: 'Hydration',
-    steps: 300,
-    description: 'Drank 8+ glasses of water',
-    icon: 'Droplets'
-  },
-  {
-    type: 'Bonus: Stretch',
-    label: 'Yoga / Stretch',
-    steps: 750,
-    description: 'Yoga or stretching session',
-    icon: 'Move'
-  },
-  // Add your own bonus activities!
-];
-
-// =============================================================================
 // BADGES
 // =============================================================================
 

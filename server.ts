@@ -1833,7 +1833,7 @@ app.get('/api/ai/sleep-analysis/:userId', async (req, res) => {
 
     // Fetch user's logs for this week
     const logsRes = await pool.query(
-      'SELECT * FROM sleep_logs WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3 AND bonus_type IS NULL ORDER BY date_logged ASC',
+      'SELECT * FROM sleep_logs WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3 ORDER BY date_logged ASC',
       [userId, weekStart, weekEnd]
     );
     const logs = logsRes.rows.map((r: any) => parseNumericFields(r, NUMERIC_LOG_FIELDS));
@@ -1897,7 +1897,7 @@ app.get('/api/ai/sleep-analysis/:userId', async (req, res) => {
       const prevStart = getWeekStartDateServer(currentWeek - 1);
       const prevEnd = getWeekEndDateServer(currentWeek - 1);
       const prevRes = await pool.query(
-        'SELECT sleep_hours FROM sleep_logs WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3 AND bonus_type IS NULL',
+        'SELECT sleep_hours FROM sleep_logs WHERE user_id = $1 AND date_logged >= $2 AND date_logged <= $3',
         [userId, prevStart, prevEnd]
       );
       if (prevRes.rows.length > 0) {
@@ -1990,7 +1990,7 @@ async function computeAwards(dbPool: Pool, period: string): Promise<{ period: st
 
   // 3. Clockwork - best consistency (lowest bedtime std dev)
   const userLogsByUser: Record<number, any[]> = {};
-  logs.filter((l: any) => !l.bonus_type && l.bedtime && l.bedtime !== '00:00')
+  logs.filter((l: any) => l.bedtime && l.bedtime !== '00:00')
     .forEach((l: any) => { if (!userLogsByUser[l.user_id]) userLogsByUser[l.user_id] = []; userLogsByUser[l.user_id].push(l); });
 
   let bestConsistency = { userId: 0, variation: Infinity };
@@ -2010,8 +2010,7 @@ async function computeAwards(dbPool: Pool, period: string): Promise<{ period: st
   }
 
   // 4. Power Sleeper - best single night
-  const nonBonusLogs = logs.filter((l: any) => !l.bonus_type);
-  const bestNight = nonBonusLogs.sort((a: any, b: any) => parseFloat(b.sleep_hours) - parseFloat(a.sleep_hours))[0];
+  const bestNight = [...logs].sort((a: any, b: any) => parseFloat(b.sleep_hours) - parseFloat(a.sleep_hours))[0];
   if (bestNight) {
     const u = users.find((u: any) => u.id === bestNight.user_id);
     if (u) awards.push({ id: 'power_sleeper', emoji: '⚡', title: 'Power Sleeper', winner: u.username, winnerEmoji: u.avatar_emoji, stat: `${parseFloat(bestNight.sleep_hours).toFixed(1)}h on ${bestNight.date_logged}` });
@@ -2140,7 +2139,7 @@ async function computeAwards(dbPool: Pool, period: string): Promise<{ period: st
   // 1. Sleep Champion badge: 8+ hours 3 nights in a row
   const streak3Earners: { username: string; emoji: string }[] = [];
   const sortedLogsByUser: Record<number, any[]> = {};
-  nonBonusLogs
+  logs
     .sort((a: any, b: any) => a.date_logged.localeCompare(b.date_logged))
     .forEach((l: any) => {
       if (!sortedLogsByUser[l.user_id]) sortedLogsByUser[l.user_id] = [];
@@ -2195,7 +2194,7 @@ async function computeAwards(dbPool: Pool, period: string): Promise<{ period: st
   // 4. Weekend Warrior badge: great sleep (7.5h+) on Saturday or Sunday
   const weekendEarners: { username: string; emoji: string }[] = [];
   const weekendChecked = new Set<number>();
-  nonBonusLogs.forEach((l: any) => {
+  logs.forEach((l: any) => {
     const dayOfWeek = new Date(l.date_logged + 'T12:00:00').getDay(); // 0=Sun, 6=Sat
     if ((dayOfWeek === 0 || dayOfWeek === 6) && parseFloat(l.sleep_hours) >= 7.5 && !weekendChecked.has(l.user_id)) {
       weekendChecked.add(l.user_id);
@@ -2210,7 +2209,7 @@ async function computeAwards(dbPool: Pool, period: string): Promise<{ period: st
   // 5. Deep Sleeper badge: 9+ hours in one night
   const deepSleeperEarners: { username: string; emoji: string }[] = [];
   const deepChecked = new Set<number>();
-  nonBonusLogs.forEach((l: any) => {
+  logs.forEach((l: any) => {
     if (parseFloat(l.sleep_hours) >= 9 && !deepChecked.has(l.user_id)) {
       deepChecked.add(l.user_id);
       const u = users.find((u: any) => u.id === l.user_id);

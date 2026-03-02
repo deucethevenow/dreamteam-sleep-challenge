@@ -131,7 +131,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       const consistency = calculateConsistencyVariation(recentLogs);
       setConsistencyVar(consistency.avgVariation);
 
-      const sleepOnlyLogs = recentLogs.filter(l => !l.bonus_type);
+      const sleepOnlyLogs = recentLogs;
       const avgHours = sleepOnlyLogs.length > 0
         ? sleepOnlyLogs.reduce((sum, l) => sum + l.sleep_hours, 0) / sleepOnlyLogs.length
         : 0;
