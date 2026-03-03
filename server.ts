@@ -2,6 +2,7 @@ import express from 'express';
 import { Pool } from 'pg';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { sendSlackLog, sendSlackDailyUpdate, sendSlackMorningRecap, getDailyWinCount, previewMorningRecap, drawWeeklyPrizeWinner, drawGrandPrizeWinner, announceGrandPrizeWinner, postToSlack, checkAndAnnounceMilestone, sendWeeklyPrizeQualificationCelebration, sendGrandPrizeQualificationCelebration, gatherChallengeStats, sendGrandPrizeCountdownPost, sendEpicFinaleAnnouncement, sendAwardsCeremony, sendChallengeKickoff } from './services/slackService';
 import { getPersonalizedSleepAnalysis, SleepAnalysisInput, SleepAnalysisResult } from './services/geminiService';
 
@@ -314,6 +315,14 @@ const initDB = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Migrate daily_winners: add sleep_hours column if missing (table predates this column)
+    try {
+      await pool.query(`ALTER TABLE daily_winners ADD COLUMN IF NOT EXISTS sleep_hours NUMERIC NOT NULL DEFAULT 0`);
+      await pool.query(`ALTER TABLE daily_winners ADD COLUMN IF NOT EXISTS announced BOOLEAN DEFAULT FALSE`);
+    } catch (e) {
+      console.log("daily_winners migration columns may already exist");
+    }
 
     // Create milestone_events table to track milestone achievements (50%, 100%, etc.)
     // UNIQUE constraint on milestone_type prevents duplicate announcements
@@ -2323,11 +2332,25 @@ app.post('/api/login', async (req, res) => {
 });
 
 // SPA Fallback: If no API route matches, serve the React App (index.html)
-// Express 5 requires explicit catch-all pattern
+// Inject runtime config (Gemini API key) into HTML so client-side AI features work
 app.use((req, res) => {
     const indexPath = process.env.NODE_ENV === 'production'
         ? path.join(path.resolve('./dist'), 'index.html')
         : path.join(path.resolve('.'), 'index.html');
+
+    // Inject runtime config into HTML for client-side Gemini API access
+    const geminiKey = process.env.API_KEY || '';
+    if (geminiKey) {
+      try {
+        let html = fs.readFileSync(indexPath, 'utf-8');
+        const configScript = `<script>window.__GEMINI_API_KEY__="${geminiKey}";</script>`;
+        html = html.replace('</head>', configScript + '</head>');
+        res.type('html').send(html);
+        return;
+      } catch (e) {
+        // Fall through to sendFile
+      }
+    }
     res.sendFile(indexPath);
 });
 
