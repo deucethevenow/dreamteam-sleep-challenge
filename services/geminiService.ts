@@ -54,6 +54,12 @@ export interface ScreenshotAnalysisResult {
   warnings?: string[];
 }
 
+// Detect Gemini quota / rate limit errors
+function isQuotaError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return msg.includes('429') || msg.includes('quota') || msg.includes('rate') || msg.includes('RESOURCE_EXHAUSTED');
+}
+
 // Convert File to base64 for Gemini Vision API
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -203,10 +209,15 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
     }
   } catch (error) {
     console.error("Gemini Vision API Error:", error);
+
+    const friendlyMessage = isQuotaError(error)
+      ? "Our AI is sleeping on the job right now (quota limit reached). Please enter your data manually — we'll wake it up soon! 😴"
+      : "AI analysis hit a snag. Please enter your data manually.";
+
     return {
       success: false,
       data: {},
-      errors: [`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please enter data manually.`]
+      errors: [friendlyMessage]
     };
   }
 };
@@ -242,7 +253,9 @@ export const getSleepTip = async (currentHours: number): Promise<string> => {
     return response.text().trim();
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Every hour of quality sleep is an investment in tomorrow! 🌙";
+    return isQuotaError(error)
+      ? "Our AI tip generator is sleeping on the job (quota reached). Here's a classic: keep your bedroom cool (65-68°F) for optimal sleep! 🌡️"
+      : "Every hour of quality sleep is an investment in tomorrow! 🌙";
   }
 };
 
@@ -295,7 +308,9 @@ export const getDailyFunFact = async (todayHours: number, totalHours: number, le
     return response.text().trim();
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "🌟 Every hour of sleep makes you stronger, smarter, and happier!";
+    return isQuotaError(error)
+      ? "😴 Fun fact: Even our AI needs sleep sometimes! It hit its quota limit — but unlike humans, it'll bounce back in a few hours."
+      : "🌟 Every hour of sleep makes you stronger, smarter, and happier!";
   }
 };
 
@@ -407,6 +422,13 @@ export const getPersonalizedSleepAnalysis = async (
     return parsed;
   } catch (error) {
     console.error("Gemini Sleep Analysis Error:", error);
+    if (isQuotaError(error)) {
+      return {
+        summary: "Our AI sleep analyst called in sick today (hit its quota limit). Check back later for your personalized briefing!",
+        highlights: [{ metric: "AI Napping", detail: "The analysis engine exceeded its API quota. It'll be back after a good rest." }],
+        tip: "While our AI recharges, here's a timeless one: keep your bedtime consistent within 30 minutes every night — it's the #1 predictor of sleep quality."
+      };
+    }
     return fallback;
   }
 };
