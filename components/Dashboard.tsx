@@ -25,7 +25,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [qualityRating, setQualityRating] = useState<number>(0);
   const [calculatedHours, setCalculatedHours] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
+  // Default to yesterday (you're logging last night's sleep)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
+  });
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState('');
   
