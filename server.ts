@@ -85,10 +85,43 @@ function parseNumericFields(row: any, fields: string[]): any {
   return parsed;
 }
 
-// Serve Static Files (Frontend)
-// In production (Docker), serve from dist folder. In dev, serve from current directory.
+// --- Frontend Serving with Runtime Config Injection ---
+// The Gemini API key must be available client-side for AI screenshot analysis.
+// Vite's VITE_GEMINI_API_KEY isn't available at Docker build time, so we inject
+// it into index.html at runtime from the server's API_KEY env var.
 const staticPath = process.env.NODE_ENV === 'production' ? path.resolve('./dist') : path.resolve('.');
-app.use('/', express.static(staticPath) as any);
+const indexPath = path.join(staticPath, 'index.html');
+let cachedIndexHtml = '';
+try {
+  let rawHtml = fs.readFileSync(indexPath, 'utf-8');
+  const geminiKey = process.env.API_KEY || '';
+  if (geminiKey) {
+    // Sanitize: Gemini API keys are alphanumeric + hyphens/underscores only
+    const safeKey = geminiKey.replace(/[^a-zA-Z0-9_\-]/g, '');
+    const configScript = `<script>window.__GEMINI_API_KEY__="${safeKey}";</script>`;
+    rawHtml = rawHtml.replace('</head>', configScript + '</head>');
+  }
+  cachedIndexHtml = rawHtml;
+  console.log(`index.html loaded (${cachedIndexHtml.length} bytes, Gemini key: ${geminiKey ? 'injected' : 'not set'})`);
+} catch (e) {
+  console.warn('Could not read index.html at startup — will use sendFile fallback');
+}
+
+// Helper to serve the cached index.html (with injected config)
+const serveIndex = (req: any, res: any) => {
+  if (cachedIndexHtml) {
+    res.type('html').send(cachedIndexHtml);
+  } else {
+    res.sendFile(indexPath);
+  }
+};
+
+// Intercept / and /index.html BEFORE express.static to ensure config injection
+app.get('/', serveIndex);
+app.get('/index.html', serveIndex);
+
+// Serve remaining static assets (JS, CSS, images)
+app.use('/', express.static(staticPath, { index: false }) as any);
 
 // --- Daily Slack Digest ---
 // Now handled by Google Cloud Scheduler calling /api/test-daily-digest at 5:00 PM MT
@@ -2332,26 +2365,13 @@ app.post('/api/login', async (req, res) => {
 });
 
 // SPA Fallback: If no API route matches, serve the React App (index.html)
-// Inject runtime config (Gemini API key) into HTML so client-side AI features work
+// Uses cached HTML with injected runtime config (Gemini API key)
 app.use((req, res) => {
-    const indexPath = process.env.NODE_ENV === 'production'
-        ? path.join(path.resolve('./dist'), 'index.html')
-        : path.join(path.resolve('.'), 'index.html');
-
-    // Inject runtime config into HTML for client-side Gemini API access
-    const geminiKey = process.env.API_KEY || '';
-    if (geminiKey) {
-      try {
-        let html = fs.readFileSync(indexPath, 'utf-8');
-        const configScript = `<script>window.__GEMINI_API_KEY__="${geminiKey}";</script>`;
-        html = html.replace('</head>', configScript + '</head>');
-        res.type('html').send(html);
-        return;
-      } catch (e) {
-        // Fall through to sendFile
-      }
+    if (cachedIndexHtml) {
+      res.type('html').send(cachedIndexHtml);
+    } else {
+      res.sendFile(indexPath);
     }
-    res.sendFile(indexPath);
 });
 
 // Start Server
