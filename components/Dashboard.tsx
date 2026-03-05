@@ -20,8 +20,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [isOnline, setIsOnline] = useState(true);
   
   // Logging State
-  const [bedtime, setBedtime] = useState('22:30');
-  const [wakeTime, setWakeTime] = useState('06:30');
+  const [bedtime, setBedtime] = useState('');
+  const [wakeTime, setWakeTime] = useState('');
   const [qualityRating, setQualityRating] = useState<number>(0);
   const [calculatedHours, setCalculatedHours] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -195,13 +195,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   // Calculate sleep hours when times change
   // If AI extracted actual sleep duration, use that instead of bedtime-to-wake calculation
   useEffect(() => {
-    if (bedtime && wakeTime) {
-      if (extractedData?.totalSleepHours) {
-        setCalculatedHours(extractedData.totalSleepHours);
-      } else {
-        const hours = calculateSleepHours(bedtime, wakeTime);
-        setCalculatedHours(hours);
-      }
+    if (extractedData?.totalSleepHours) {
+      setCalculatedHours(extractedData.totalSleepHours);
+    } else if (bedtime && wakeTime) {
+      const hours = calculateSleepHours(bedtime, wakeTime);
+      setCalculatedHours(hours);
+    } else {
+      setCalculatedHours(0);
     }
   }, [bedtime, wakeTime, extractedData]);
 
@@ -329,8 +329,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         );
 
         // Reset Form
-        setBedtime('22:30');
-        setWakeTime('06:30');
+        setBedtime('');
+        setWakeTime('');
         setQualityRating(0);
         setScreenshotFiles([]);
         setNotes('');
@@ -342,7 +342,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         setSleepEfficiency('');
         setSleepLatency('');
         setShowAdvancedMetrics(false);
-        setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
+        // Reset date to yesterday
+        const resetYesterday = new Date();
+        resetYesterday.setDate(resetYesterday.getDate() - 1);
+        setSelectedDate(resetYesterday.toLocaleDateString('en-CA', { timeZone: 'America/Denver' }));
         
         // Reset AI scan state
         setShowReviewCard(false);
@@ -1113,27 +1116,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                            </p>
                          )}
                          
-                         <div className="flex gap-2 mt-3">
-                           <button
-                             type="button"
-                             disabled={isSubmitting}
-                             onClick={handleConfirmExtractedData}
-                             className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 hover:shadow-lg transition-all disabled:opacity-50"
-                           >
-                             <CheckCircle size={16} />
-                             {isSubmitting ? 'Saving...' : 'Save ' + calculatedHours.toFixed(1) + ' Hours'}
-                           </button>
+                         <div className="flex items-center justify-between mt-3">
+                           <p className="text-[10px] text-gray-500">
+                             Review above, then tap <strong>Log Sleep</strong> below
+                           </p>
                            <button
                              type="button"
                              onClick={handleDiscardExtractedData}
-                             className="px-4 bg-gray-200 text-gray-700 py-3 rounded-xl font-medium text-sm hover:bg-gray-300 transition-colors"
+                             className="text-xs text-gray-400 hover:text-red-500 transition-colors underline"
                            >
-                             Clear
+                             Clear scan
                            </button>
                          </div>
-                         <p className="text-[10px] text-gray-400 text-center mt-2">
-                           Scroll down to edit times or metrics before saving
-                         </p>
                        </div>
                      )}
 
