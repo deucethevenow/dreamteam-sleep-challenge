@@ -124,7 +124,7 @@ The images may be from Eight Sleep, Apple Watch, Oura Ring, Fitbit, Whoop, Garmi
 
 Extract the following data if visible (use null if not found):
 
-1. **Total Sleep Time**: Look for "Total sleep", "Time asleep", "Sleep duration" - convert to hours (decimal) and minutes
+1. **Total Sleep Time**: Look for "Total sleep", "Time asleep", "Sleep duration", "Time slept". For totalSleepHours, convert to DECIMAL hours (e.g., 6h 33m = 6.55). For totalSleepMinutes, give the REMAINDER minutes only (e.g., 33 for 6h 33m)
 2. **Sleep Score**: Look for any 0-100 score labeled "Sleep score", "Sleep rating", "Sleep quality score"
 3. **Bedtime**: When the person went to bed (HH:MM in 24hr format, e.g., "22:30")
 4. **Wake Time**: When the person woke up (HH:MM in 24hr format, e.g., "06:45")
@@ -141,8 +141,8 @@ IMPORTANT: Be thorough and look at ALL images provided. Combine data from multip
 
 Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
 {
-  "totalSleepHours": <number or null>,
-  "totalSleepMinutes": <number or null>,
+  "totalSleepHours": <decimal number e.g. 6.55 for 6h33m, or null>,
+  "totalSleepMinutes": <remainder minutes e.g. 33 for 6h33m, or null>,
   "sleepScore": <number 0-100 or null>,
   "bedtime": "<HH:MM string or null>",
   "wakeTime": "<HH:MM string or null>",
@@ -173,9 +173,19 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
       
       // Validate and clean the data
       const warnings: string[] = [];
-      
-      // If we have minutes but not hours, calculate hours
-      if (extractedData.totalSleepMinutes && !extractedData.totalSleepHours) {
+
+      // Combine hours + minutes into a proper decimal
+      // Gemini often returns hours=6, minutes=33 meaning "6h 33m" — NOT 33 total minutes
+      if (extractedData.totalSleepHours && extractedData.totalSleepMinutes) {
+        // Minutes is the remainder (e.g., 33 from "6h 33m"), add it to hours
+        if (extractedData.totalSleepMinutes < 60) {
+          extractedData.totalSleepHours = Math.round((extractedData.totalSleepHours + extractedData.totalSleepMinutes / 60) * 100) / 100;
+        } else {
+          // totalSleepMinutes is actually total minutes (e.g., 393 for 6h33m) — use it directly
+          extractedData.totalSleepHours = Math.round((extractedData.totalSleepMinutes / 60) * 100) / 100;
+        }
+      } else if (extractedData.totalSleepMinutes && !extractedData.totalSleepHours) {
+        // Only minutes provided — convert to hours
         extractedData.totalSleepHours = Math.round((extractedData.totalSleepMinutes / 60) * 100) / 100;
       }
       
