@@ -175,15 +175,18 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
       const warnings: string[] = [];
 
       // Combine hours + minutes into a proper decimal
-      // Gemini often returns hours=6, minutes=33 meaning "6h 33m" — NOT 33 total minutes
+      // Gemini is inconsistent: sometimes returns hours=6, minutes=33 (whole + remainder)
+      // other times hours=8.42, minutes=25 (already decimal + remainder)
       if (extractedData.totalSleepHours && extractedData.totalSleepMinutes) {
-        // Minutes is the remainder (e.g., 33 from "6h 33m"), add it to hours
-        if (extractedData.totalSleepMinutes < 60) {
-          extractedData.totalSleepHours = Math.round((extractedData.totalSleepHours + extractedData.totalSleepMinutes / 60) * 100) / 100;
-        } else {
-          // totalSleepMinutes is actually total minutes (e.g., 393 for 6h33m) — use it directly
+        const hoursIsWholeNumber = extractedData.totalSleepHours % 1 === 0;
+        if (extractedData.totalSleepMinutes >= 60) {
+          // totalSleepMinutes is total minutes (e.g., 393 for 6h33m) — use it directly
           extractedData.totalSleepHours = Math.round((extractedData.totalSleepMinutes / 60) * 100) / 100;
+        } else if (hoursIsWholeNumber) {
+          // Hours is whole (6) + minutes is remainder (33) → combine: 6 + 33/60 = 6.55
+          extractedData.totalSleepHours = Math.round((extractedData.totalSleepHours + extractedData.totalSleepMinutes / 60) * 100) / 100;
         }
+        // else: hours already has decimal (8.42) — minutes already baked in, don't double-count
       } else if (extractedData.totalSleepMinutes && !extractedData.totalSleepHours) {
         // Only minutes provided — convert to hours
         extractedData.totalSleepHours = Math.round((extractedData.totalSleepMinutes / 60) * 100) / 100;
