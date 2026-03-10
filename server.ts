@@ -1086,7 +1086,7 @@ app.post('/api/prizes/:week/reset', async (req, res) => {
     return res.status(400).json({ error: "Week must be 1-4" });
   }
   try {
-    await pool.query('UPDATE prizes SET winner_user_id = NULL, drawn_at = NULL WHERE week = $1', [weekNumber]);
+    await pool.query('UPDATE prizes SET winner_user_id = NULL, drawn_at = NULL WHERE week_number = $1', [weekNumber]);
     res.json({ success: true, message: `Week ${weekNumber} prize winner reset. Ready to redraw.` });
   } catch (err: any) {
     console.error("Prize Reset Error:", err);
