@@ -54,6 +54,36 @@ export interface ScreenshotAnalysisResult {
   warnings?: string[];
 }
 
+// Normalize sleep duration from Gemini's inconsistent output
+// Gemini may return: decimal hours (6.55), whole hours (6) + total minutes (393),
+// whole hours (6) + remainder minutes (33), or just total minutes.
+// This function resolves all variants into a single decimal hours value.
+export function normalizeSleepDuration(
+  hours: number | null | undefined,
+  minutes: number | null | undefined
+): number | null {
+  const hasHours = hours != null && hours !== 0;
+  const hasMinutes = minutes != null && minutes !== 0;
+
+  if (hasHours && hasMinutes) {
+    if (minutes! >= 60) {
+      // totalSleepMinutes is total minutes (e.g., 393 for 6h33m) — use as source of truth
+      return Math.round((minutes! / 60) * 100) / 100;
+    } else if (hours! % 1 === 0) {
+      // Hours is whole number (6) + minutes is remainder (33) → combine: 6 + 33/60 = 6.55
+      return Math.round((hours! + minutes! / 60) * 100) / 100;
+    }
+    // Hours already has decimal (8.42) — minutes already baked in, don't double-count
+    return hours!;
+  } else if (hasMinutes) {
+    // Only minutes provided — convert to hours
+    return Math.round((minutes! / 60) * 100) / 100;
+  } else if (hasHours) {
+    return hours!;
+  }
+  return null;
+}
+
 // Detect Gemini quota / rate limit errors
 function isQuotaError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
@@ -124,7 +154,7 @@ The images may be from Eight Sleep, Apple Watch, Oura Ring, Fitbit, Whoop, Garmi
 
 Extract the following data if visible (use null if not found):
 
-1. **Total Sleep Time**: Look for "Total sleep", "Time asleep", "Sleep duration", "Time slept". For totalSleepHours, convert to DECIMAL hours (e.g., 6h 33m = 6.55). For totalSleepMinutes, give the REMAINDER minutes only (e.g., 33 for 6h 33m)
+1. **Total Sleep Time**: Look for "Total sleep", "Time asleep", "Sleep duration", "Time slept". Convert to DECIMAL hours (e.g., 6h 33m = 6.55, 8h 25m = 8.42). Also provide total minutes (e.g., 393 for 6h 33m, 505 for 8h 25m)
 2. **Sleep Score**: Look for any 0-100 score labeled "Sleep score", "Sleep rating", "Sleep quality score"
 3. **Bedtime**: When the person went to bed (HH:MM in 24hr format, e.g., "22:30")
 4. **Wake Time**: When the person woke up (HH:MM in 24hr format, e.g., "06:45")
@@ -141,8 +171,8 @@ IMPORTANT: Be thorough and look at ALL images provided. Combine data from multip
 
 Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
 {
-  "totalSleepHours": <decimal number e.g. 6.55 for 6h33m, or null>,
-  "totalSleepMinutes": <remainder minutes e.g. 33 for 6h33m, or null>,
+  "totalSleepHours": <REQUIRED: decimal hours, e.g. 6.55 for 6h33m, 8.42 for 8h25m, or null>,
+  "totalSleepMinutes": <total minutes, e.g. 393 for 6h33m, 505 for 8h25m, or null>,
   "sleepScore": <number 0-100 or null>,
   "bedtime": "<HH:MM string or null>",
   "wakeTime": "<HH:MM string or null>",
@@ -174,22 +204,10 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
       // Validate and clean the data
       const warnings: string[] = [];
 
-      // Combine hours + minutes into a proper decimal
-      // Gemini is inconsistent: sometimes returns hours=6, minutes=33 (whole + remainder)
-      // other times hours=8.42, minutes=25 (already decimal + remainder)
-      if (extractedData.totalSleepHours && extractedData.totalSleepMinutes) {
-        const hoursIsWholeNumber = extractedData.totalSleepHours % 1 === 0;
-        if (extractedData.totalSleepMinutes >= 60) {
-          // totalSleepMinutes is total minutes (e.g., 393 for 6h33m) — use it directly
-          extractedData.totalSleepHours = Math.round((extractedData.totalSleepMinutes / 60) * 100) / 100;
-        } else if (hoursIsWholeNumber) {
-          // Hours is whole (6) + minutes is remainder (33) → combine: 6 + 33/60 = 6.55
-          extractedData.totalSleepHours = Math.round((extractedData.totalSleepHours + extractedData.totalSleepMinutes / 60) * 100) / 100;
-        }
-        // else: hours already has decimal (8.42) — minutes already baked in, don't double-count
-      } else if (extractedData.totalSleepMinutes && !extractedData.totalSleepHours) {
-        // Only minutes provided — convert to hours
-        extractedData.totalSleepHours = Math.round((extractedData.totalSleepMinutes / 60) * 100) / 100;
+      // Normalize hours + minutes into a single decimal value
+      const normalized = normalizeSleepDuration(extractedData.totalSleepHours, extractedData.totalSleepMinutes);
+      if (normalized != null) {
+        extractedData.totalSleepHours = normalized;
       }
       
       // Validate sleep score is in range
